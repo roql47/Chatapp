@@ -249,11 +249,15 @@ router.post('/test/create', async (req, res) => {
     
     // 테스트 계정 ID 생성
     const testId = `test_user_${Date.now()}`;
+    const testNickname = nickname || `테스트유저_${Math.floor(Math.random() * 1000)}`;
+    
+    // 랜덤 프로필 사진 URL 생성 (ui-avatars.com 사용)
+    const profileImage = `https://ui-avatars.com/api/?name=${encodeURIComponent(testNickname)}&background=random&color=fff&size=200`;
     
     const result = await authService.loginWithKakao(
       testId,
-      nickname || `테스트유저_${Math.floor(Math.random() * 1000)}`,
-      null,
+      testNickname,
+      profileImage,
       'test_access_token'
     );
     

@@ -11,9 +11,9 @@ const { io } = require('socket.io-client');
 const readline = require('readline');
 const http = require('http');
 
-// 설정
-const SERVER_URL = 'http://localhost:3000';
-const API_URL = 'http://localhost:3000/api';
+// 설정 (AWS Lightsail 서버)
+const SERVER_URL = 'http://52.79.154.253:3001';
+const API_URL = 'http://52.79.154.253:3001/api';
 
 // 상태
 let socket = null;
@@ -48,8 +48,8 @@ function httpRequest(method, path, data = null) {
   return new Promise((resolve, reject) => {
     const fullPath = `/api${path}`;
     const options = {
-      hostname: 'localhost',
-      port: 3000,
+      hostname: '52.79.154.253',
+      port: 3001,
       path: fullPath,
       method: method,
       headers: {
