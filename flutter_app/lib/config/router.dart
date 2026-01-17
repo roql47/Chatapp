@@ -1,0 +1,116 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import '../providers/auth_provider.dart';
+import '../screens/splash_screen.dart';
+import '../screens/login_screen.dart';
+import '../screens/profile_setup_screen.dart';
+import '../screens/home_screen.dart';
+import '../screens/matching_screen.dart';
+import '../screens/chat_screen.dart';
+import '../screens/video_call_screen.dart';
+import '../screens/settings_screen.dart';
+import '../screens/point_shop_screen.dart';
+import '../screens/friends_screen.dart';
+import '../screens/vip_shop_screen.dart';
+import '../screens/chat_history_screen.dart';
+
+class AppRouter {
+  static final GoRouter router = GoRouter(
+    initialLocation: '/',
+    debugLogDiagnostics: true,
+    routes: [
+      GoRoute(
+        path: '/',
+        name: 'splash',
+        builder: (context, state) => const SplashScreen(),
+      ),
+      GoRoute(
+        path: '/login',
+        name: 'login',
+        builder: (context, state) => const LoginScreen(),
+      ),
+      GoRoute(
+        path: '/profile-setup',
+        name: 'profile-setup',
+        builder: (context, state) => const ProfileSetupScreen(),
+      ),
+      GoRoute(
+        path: '/home',
+        name: 'home',
+        builder: (context, state) => const HomeScreen(),
+      ),
+      GoRoute(
+        path: '/matching',
+        name: 'matching',
+        builder: (context, state) => const MatchingScreen(),
+      ),
+      GoRoute(
+        path: '/chat',
+        name: 'chat',
+        builder: (context, state) => const ChatScreen(),
+      ),
+      GoRoute(
+        path: '/video-call',
+        name: 'video-call',
+        builder: (context, state) {
+          final callType = state.extra as String? ?? 'video';
+          return VideoCallScreen(callType: callType);
+        },
+      ),
+      GoRoute(
+        path: '/settings',
+        name: 'settings',
+        builder: (context, state) => const SettingsScreen(),
+      ),
+      GoRoute(
+        path: '/point-shop',
+        name: 'point-shop',
+        builder: (context, state) => const PointShopScreen(),
+      ),
+      GoRoute(
+        path: '/friends',
+        name: 'friends',
+        builder: (context, state) => const FriendsScreen(),
+      ),
+      GoRoute(
+        path: '/vip-shop',
+        name: 'vip-shop',
+        builder: (context, state) => const VipShopScreen(),
+      ),
+      GoRoute(
+        path: '/chat-history',
+        name: 'chat-history',
+        builder: (context, state) => const ChatHistoryScreen(),
+      ),
+    ],
+    redirect: (context, state) {
+      final authProvider = Provider.of<AuthProvider>(context, listen: false);
+      final isLoggedIn = authProvider.isLoggedIn;
+      final needsProfile = authProvider.state == AuthState.needsProfile;
+      final isOnSplash = state.matchedLocation == '/';
+      final isOnLogin = state.matchedLocation == '/login';
+      final isOnProfileSetup = state.matchedLocation == '/profile-setup';
+
+      // 스플래시 화면에서는 리다이렉트 하지 않음
+      if (isOnSplash) return null;
+
+      // 프로필 설정이 필요한 경우
+      if (needsProfile && !isOnProfileSetup) {
+        return '/profile-setup';
+      }
+
+      // 로그인이 필요한 경우
+      if (!isLoggedIn && !isOnLogin && !isOnProfileSetup) {
+        return '/login';
+      }
+
+      // 이미 로그인된 경우 로그인 페이지 접근 방지
+      if (isLoggedIn && isOnLogin) {
+        return '/home';
+      }
+
+      return null;
+    },
+  );
+}

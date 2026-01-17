@@ -1,0 +1,342 @@
+const User = require('../models/User');
+const ChatRoom = require('../models/ChatRoom');
+const authService = require('./authService');
+
+// ============================================
+// 포인트 설정
+// ============================================
+const GENDER_FILTER_COST = 10;  // 성별 필터 매칭 비용
+
+// ============================================
+// 🧪 테스트 모드 설정
+// ============================================
+const TEST_MODE = false;  // 테스트 모드 ON/OFF (터미널 클라이언트 사용 시 false)
+const TEST_MATCH_DELAY = 3000;  // 3초 후 테스트 봇과 매칭
+
+// 테스트 봇 정보
+const TEST_BOT = {
+  _id: 'test_bot_001',
+  kakaoId: 'test_bot_kakao',
+  nickname: '테스트 봇 🤖',
+  profileImage: null,
+  gender: 'other',
+  interests: ['테스트', '개발', '채팅'],
+  isOnline: true,
+  rating: { averageScore: 4.5, totalRatings: 100 },
+};
+// ============================================
+
+// 매칭 대기열
+const matchingQueue = new Map(); // userId -> { socketId, filter, timestamp, user }
+
+// 관심사 일치율 계산
+const calculateInterestMatch = (interests1, interests2) => {
+  if (!interests1?.length || !interests2?.length) return 0;
+  
+  const commonInterests = interests1.filter(i => interests2.includes(i));
+  const totalUnique = new Set([...interests1, ...interests2]).size;
+  
+  return {
+    matchRate: Math.round((commonInterests.length / totalUnique) * 100),
+    commonInterests,
+    commonCount: commonInterests.length,
+  };
+};
+
+// 매칭 점수 계산 (높을수록 좋은 매칭)
+const calculateMatchScore = (currentUser, candidateUser, filter) => {
+  let score = 0;
+  
+  // 1. 관심사 일치 점수 (최대 50점)
+  const interestMatch = calculateInterestMatch(
+    currentUser.interests, 
+    candidateUser.interests
+  );
+  score += interestMatch.matchRate * 0.5;
+  
+  // 2. 평점 점수 (최대 25점)
+  if (candidateUser.rating?.averageScore) {
+    score += candidateUser.rating.averageScore * 5;
+  }
+  
+  // 3. VIP 우선순위 (VIP면 +20점)
+  if (candidateUser.vip?.isVip) {
+    if (candidateUser.vip.tier === 'gold') score += 20;
+    else if (candidateUser.vip.tier === 'silver') score += 15;
+    else if (candidateUser.vip.tier === 'bronze') score += 10;
+  }
+  
+  // 4. 대기 시간 보정 (오래 기다린 사람 우선)
+  const waitTime = Date.now() - (matchingQueue.get(candidateUser._id.toString())?.timestamp || Date.now());
+  score += Math.min(waitTime / 10000, 5); // 최대 5점
+  
+  return {
+    score,
+    interestMatch,
+  };
+};
+
+// 매칭 대기열에 추가
+const addToQueue = async (userId, socketId, filter) => {
+  const user = await User.findById(userId);
+  matchingQueue.set(userId, {
+    socketId,
+    filter,
+    timestamp: Date.now(),
+    user,
+  });
+  console.log(`매칭 대기열에 추가: ${userId}, 현재 대기 인원: ${matchingQueue.size}`);
+};
+
+// 매칭 대기열에서 제거
+const removeFromQueue = (userId) => {
+  matchingQueue.delete(userId);
+  console.log(`매칭 대기열에서 제거: ${userId}, 현재 대기 인원: ${matchingQueue.size}`);
+};
+
+// 매칭 상대 찾기 (점수 기반)
+const findMatch = async (userId, filter) => {
+  try {
+    const currentUser = await User.findById(userId);
+    if (!currentUser) return null;
+
+    // 제재 상태 확인
+    if (currentUser.sanctions?.isBanned) {
+      return { error: '계정이 정지되었습니다.' };
+    }
+    if (currentUser.sanctions?.isSuspended && new Date() < currentUser.sanctions.suspendedUntil) {
+      return { error: `계정이 ${currentUser.sanctions.suspendedUntil.toLocaleDateString()}까지 정지되었습니다.` };
+    }
+
+    const blockedUsers = currentUser.blockedUsers || [];
+    const candidates = [];
+
+    // 매칭 대기열에서 후보 찾기
+    for (const [candidateId, candidateData] of matchingQueue) {
+      if (candidateId === userId) continue;
+      if (blockedUsers.includes(candidateId)) continue;
+
+      const candidateUser = candidateData.user || await User.findById(candidateId);
+      if (!candidateUser) continue;
+
+      // 제재 상태 확인
+      if (candidateUser.sanctions?.isBanned) continue;
+      if (candidateUser.sanctions?.isSuspended && new Date() < candidateUser.sanctions.suspendedUntil) continue;
+
+      // 상대방의 차단 목록 확인
+      if (candidateUser.blockedUsers?.includes(userId)) continue;
+
+      // 성별 필터 확인
+      const candidateFilter = candidateData.filter || {};
+      if (filter.preferredGender && filter.preferredGender !== 'any') {
+        if (candidateUser.gender !== filter.preferredGender) continue;
+      }
+      if (candidateFilter.preferredGender && candidateFilter.preferredGender !== 'any') {
+        if (currentUser.gender !== candidateFilter.preferredGender) continue;
+      }
+
+      // 매칭 점수 계산
+      const matchInfo = calculateMatchScore(currentUser, candidateUser, filter);
+      
+      candidates.push({
+        candidateId,
+        candidateSocketId: candidateData.socketId,
+        candidateUser,
+        ...matchInfo,
+      });
+    }
+
+    if (candidates.length === 0) return null;
+
+    // 점수가 높은 순으로 정렬하고 최고 점수 후보 선택
+    candidates.sort((a, b) => b.score - a.score);
+    const bestMatch = candidates[0];
+
+    return {
+      candidateId: bestMatch.candidateId,
+      candidateSocketId: bestMatch.candidateSocketId,
+      candidateUser: bestMatch.candidateUser,
+      interestMatch: bestMatch.interestMatch,
+      matchScore: bestMatch.score,
+    };
+  } catch (error) {
+    console.error('매칭 오류:', error);
+    return null;
+  }
+};
+
+// 매칭 프리뷰 생성
+const createMatchPreview = (partner, interestMatch) => {
+  return {
+    nickname: partner.nickname,
+    profileImage: partner.profileImage,
+    gender: partner.gender,
+    interests: partner.interests?.slice(0, 5) || [],
+    rating: {
+      averageScore: partner.rating?.averageScore || 0,
+      totalRatings: partner.rating?.totalRatings || 0,
+    },
+    isVip: partner.vip?.isVip || false,
+    vipTier: partner.vip?.tier || 'none',
+    interestMatch: interestMatch || { matchRate: 0, commonInterests: [] },
+  };
+};
+
+// 채팅방 생성
+const createChatRoom = async (user1Id, user2Id) => {
+  try {
+    const room = await ChatRoom.create({
+      participants: [user1Id, user2Id],
+    });
+    return room;
+  } catch (error) {
+    console.error('채팅방 생성 오류:', error);
+    throw error;
+  }
+};
+
+// 채팅방 종료
+const endChatRoom = async (roomId) => {
+  try {
+    await ChatRoom.findByIdAndUpdate(roomId, {
+      isActive: false,
+      endedAt: new Date(),
+    });
+    return true;
+  } catch (error) {
+    console.error('채팅방 종료 오류:', error);
+    return false;
+  }
+};
+
+// 성별 필터 사용 여부 확인
+const hasGenderFilter = (filter) => {
+  return filter.preferredGender && filter.preferredGender !== 'any';
+};
+
+// VIP 성별 필터 무료 사용 확인
+const checkVipGenderFilterBenefit = async (userId) => {
+  const user = await User.findById(userId);
+  if (!user?.vip?.isVip) return false;
+  
+  // VIP 만료 확인
+  if (user.vip.expiresAt && new Date() > user.vip.expiresAt) return false;
+  
+  // 골드는 무제한
+  if (user.vip.tier === 'gold') return true;
+  
+  // TODO: 브론즈/실버는 일일 횟수 제한 추적 필요
+  return user.vip.tier === 'silver' || user.vip.tier === 'bronze';
+};
+
+// 포인트 차감 (성별 필터 시)
+const deductPointsForGenderFilter = async (userId, filter) => {
+  if (!hasGenderFilter(filter)) {
+    return { success: true };
+  }
+
+  // VIP 혜택 확인
+  const hasVipBenefit = await checkVipGenderFilterBenefit(userId);
+  if (hasVipBenefit) {
+    return { success: true, usedVipBenefit: true };
+  }
+
+  const user = await User.findById(userId);
+  if (!user) {
+    return { success: false, message: '사용자를 찾을 수 없습니다.' };
+  }
+
+  if (user.points < GENDER_FILTER_COST) {
+    return { 
+      success: false, 
+      message: `포인트가 부족합니다. 성별 필터 매칭에는 ${GENDER_FILTER_COST}P가 필요합니다.`,
+      needsPoints: true,
+    };
+  }
+
+  const result = await authService.usePoints(userId, GENDER_FILTER_COST, '성별 필터 매칭');
+  return result;
+};
+
+// 매칭 처리
+const processMatching = async (userId, socketId, filter, io) => {
+  // 성별 필터가 있으면 포인트 확인
+  if (hasGenderFilter(filter)) {
+    const pointCheck = await deductPointsForGenderFilter(userId, filter);
+    if (!pointCheck.success) {
+      return {
+        success: false,
+        error: pointCheck.message,
+        needsPoints: pointCheck.needsPoints,
+      };
+    }
+  }
+
+  // 대기열에 추가
+  await addToQueue(userId, socketId, filter);
+
+  // 매칭 상대 찾기
+  const match = await findMatch(userId, filter);
+
+  if (match?.error) {
+    removeFromQueue(userId);
+    return { success: false, error: match.error };
+  }
+
+  if (match) {
+    // 매칭 성공
+    removeFromQueue(userId);
+    removeFromQueue(match.candidateId);
+
+    const room = await createChatRoom(userId, match.candidateId);
+    const currentUser = await User.findById(userId).select('-blockedUsers -sanctions');
+
+    // 매칭 프리뷰 정보 생성
+    const partnerPreview = createMatchPreview(match.candidateUser, match.interestMatch);
+    const currentUserPreview = createMatchPreview(currentUser, match.interestMatch);
+
+    return {
+      success: true,
+      room,
+      currentUser,
+      partner: match.candidateUser,
+      partnerSocketId: match.candidateSocketId,
+      partnerPreview,
+      currentUserPreview,
+      interestMatch: match.interestMatch,
+    };
+  }
+
+  return { success: false, waiting: true };
+};
+
+// 대기열 크기
+const getQueueSize = () => matchingQueue.size;
+
+// 대기열 정리
+const cleanupQueue = (maxAge = 5 * 60 * 1000) => {
+  const now = Date.now();
+  for (const [userId, data] of matchingQueue) {
+    if (now - data.timestamp > maxAge) {
+      matchingQueue.delete(userId);
+    }
+  }
+};
+
+module.exports = {
+  addToQueue,
+  removeFromQueue,
+  findMatch,
+  createChatRoom,
+  endChatRoom,
+  processMatching,
+  getQueueSize,
+  cleanupQueue,
+  calculateInterestMatch,
+  createMatchPreview,
+  TEST_MODE,
+  TEST_MATCH_DELAY,
+  TEST_BOT,
+  GENDER_FILTER_COST,
+  hasGenderFilter,
+};

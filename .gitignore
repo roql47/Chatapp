@@ -1,0 +1,68 @@
+# Dependencies
+node_modules/
+.pnp/
+.pnp.js
+
+# Build outputs
+build/
+dist/
+*.log
+
+# Environment files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Server logs
+server/server.log
+server/server.err.log
+
+# Flutter
+flutter_app/.dart_tool/
+flutter_app/.packages
+flutter_app/.pub-cache/
+flutter_app/.pub/
+flutter_app/build/
+flutter_app/.flutter-plugins
+flutter_app/.flutter-plugins-dependencies
+flutter_app/*.iml
+flutter_app/.metadata
+
+# Android
+flutter_app/android/.gradle/
+flutter_app/android/app/debug/
+flutter_app/android/app/profile/
+flutter_app/android/app/release/
+flutter_app/android/local.properties
+flutter_app/android/*.keystore
+flutter_app/android/key.properties
+
+# iOS
+flutter_app/ios/Pods/
+flutter_app/ios/.symlinks/
+flutter_app/ios/Flutter/Flutter.framework
+flutter_app/ios/Flutter/Flutter.podspec
+flutter_app/ios/Flutter/Generated.xcconfig
+flutter_app/ios/Flutter/app.flx
+flutter_app/ios/Flutter/flutter_assets/
+flutter_app/ios/Flutter/engine/
+flutter_app/ios/ServiceDefinitions.json
+flutter_app/ios/Runner/GeneratedPluginRegistrant.*
+
+# Miscellaneous
+*.class
+*.jar
+*.pyc
+__pycache__/
