@@ -2,7 +2,7 @@
 class AppConfig {
   // 서버 URL (프로덕션 - AWS Lightsail)
   static String get serverUrl {
-    return 'http://52.79.154.253:3000'; // AWS Lightsail 서버
+    return 'http://52.79.154.253:3001'; // AWS Lightsail 서버 (포트 3001)
   }
   
   // 카카오 앱 키
