@@ -14,6 +14,7 @@ class SocketService {
 
   io.Socket? _socket;
   String? _userId;
+  String? _token;
   
   // 콜백들
   MessageCallback? onMessageReceived;
@@ -21,16 +22,27 @@ class SocketService {
   VoidCallback? onMatchCancelled;
   TypingCallback? onTypingStatus;
   VoidCallback? onPartnerDisconnected;
+  VoidCallback? onPartnerConnectionLost; // 상대방 일시적 연결 끊김
+  VoidCallback? onPartnerReconnected; // 상대방 재연결
   CallCallback? onCallOffer;
   CallCallback? onCallAnswer;
   CallCallback? onIceCandidate;
   VoidCallback? onCallEnded;
+  VoidCallback? onReconnected; // 재연결 콜백
 
   bool get isConnected => _socket?.connected ?? false;
+  String? get userId => _userId;
 
   // 소켓 연결
   void connect(String userId, String token) {
     _userId = userId;
+    _token = token;
+    
+    // 이미 연결되어 있으면 재연결하지 않음
+    if (_socket?.connected == true) {
+      print('Socket already connected');
+      return;
+    }
     
     _socket = io.io(
       AppConfig.serverUrl,
@@ -40,20 +52,39 @@ class SocketService {
           .setQuery({'userId': userId})
           .enableAutoConnect()
           .enableReconnection()
+          .setReconnectionAttempts(10)
+          .setReconnectionDelay(1000)
+          .setReconnectionDelayMax(5000)
           .build(),
     );
 
     _setupListeners();
     _socket?.connect();
   }
+  
+  // 재연결 시도
+  void reconnect() {
+    if (_userId != null && _token != null) {
+      if (_socket?.connected == false) {
+        _socket?.connect();
+      }
+    }
+  }
 
   void _setupListeners() {
     _socket?.onConnect((_) {
       print('Socket connected');
+      // 재연결 시 콜백 호출
+      onReconnected?.call();
     });
 
     _socket?.onDisconnect((_) {
       print('Socket disconnected');
+    });
+    
+    _socket?.onReconnect((_) {
+      print('Socket reconnected');
+      onReconnected?.call();
     });
 
     _socket?.onError((error) {
@@ -81,9 +112,19 @@ class SocketService {
       onTypingStatus?.call(data['userId'], data['isTyping']);
     });
 
-    // 상대방 연결 해제
+    // 상대방 연결 해제 (완전 종료)
     _socket?.on('partner_disconnected', (_) {
       onPartnerDisconnected?.call();
+    });
+    
+    // 상대방 일시적 연결 끊김
+    _socket?.on('partner_connection_lost', (_) {
+      onPartnerConnectionLost?.call();
+    });
+    
+    // 상대방 재연결
+    _socket?.on('partner_reconnected', (_) {
+      onPartnerReconnected?.call();
     });
 
     // WebRTC 시그널링

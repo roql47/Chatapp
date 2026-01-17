@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import '../models/chat_message.dart';
 import '../models/chat_room.dart';
 import '../models/matching_filter.dart';
@@ -10,6 +12,9 @@ import 'dart:io';
 
 // 성별 필터 매칭 비용
 const int genderFilterCost = 10;
+
+// 저장 키
+const String _activeChatKey = 'active_chat_session';
 
 enum MatchingState {
   idle,
@@ -30,6 +35,7 @@ class ChatProvider extends ChangeNotifier {
   bool _partnerTyping = false;
   MatchingFilter _filter = MatchingFilter();
   String? _matchingError;
+  bool _isRestoring = false;
 
   MatchingState get matchingState => _matchingState;
   ChatRoom? get currentRoom => _currentRoom;
@@ -38,16 +44,111 @@ class ChatProvider extends ChangeNotifier {
   bool get partnerTyping => _partnerTyping;
   MatchingFilter get filter => _filter;
   String? get matchingError => _matchingError;
+  bool get isRestoring => _isRestoring;
+  bool get hasActiveChat => _currentRoom != null && _matchingState == MatchingState.chatting;
 
   ChatProvider() {
     _setupSocketListeners();
+    _restoreSession(); // 앱 시작 시 세션 복원
+  }
+  
+  // 세션 저장 (백그라운드 전환 시)
+  Future<void> saveSession() async {
+    if (_currentRoom == null || _partner == null) {
+      await clearSession();
+      return;
+    }
+    
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final sessionData = {
+        'room': {
+          'id': _currentRoom!.id,
+          'participants': _currentRoom!.participants,
+          'createdAt': _currentRoom!.createdAt.toIso8601String(),
+        },
+        'partner': _partner!.toJson(),
+        'matchingState': _matchingState.index,
+        'savedAt': DateTime.now().toIso8601String(),
+      };
+      await prefs.setString(_activeChatKey, jsonEncode(sessionData));
+      print('💾 채팅 세션 저장됨: ${_currentRoom!.id}');
+    } catch (e) {
+      print('채팅 세션 저장 오류: $e');
+    }
+  }
+  
+  // 세션 복원 (앱 재시작 시)
+  Future<void> _restoreSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final sessionJson = prefs.getString(_activeChatKey);
+      
+      if (sessionJson == null) return;
+      
+      final sessionData = jsonDecode(sessionJson) as Map<String, dynamic>;
+      final savedAt = DateTime.parse(sessionData['savedAt']);
+      
+      // 30분 이상 지난 세션은 무시
+      if (DateTime.now().difference(savedAt).inMinutes > 30) {
+        await clearSession();
+        return;
+      }
+      
+      _isRestoring = true;
+      notifyListeners();
+      
+      _currentRoom = ChatRoom.fromJson(sessionData['room']);
+      _partner = UserModel.fromJson(sessionData['partner']);
+      _matchingState = MatchingState.values[sessionData['matchingState'] ?? 3];
+      
+      print('🔄 채팅 세션 복원됨: ${_currentRoom!.id}');
+      
+      // 소켓 연결 후 방에 다시 참여
+      if (_socketService.isConnected && _currentRoom != null) {
+        _socketService.joinRoom(_currentRoom!.id);
+      }
+      
+      _isRestoring = false;
+      notifyListeners();
+    } catch (e) {
+      print('채팅 세션 복원 오류: $e');
+      await clearSession();
+      _isRestoring = false;
+    }
+  }
+  
+  // 세션 삭제
+  Future<void> clearSession() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.remove(_activeChatKey);
+    } catch (e) {
+      print('세션 삭제 오류: $e');
+    }
+  }
+  
+  // 소켓 재연결 시 호출
+  void onSocketReconnected() {
+    if (_currentRoom != null && _matchingState == MatchingState.chatting) {
+      _socketService.joinRoom(_currentRoom!.id);
+      print('🔌 소켓 재연결 - 채팅방 재참여: ${_currentRoom!.id}');
+    }
   }
 
   void _setupSocketListeners() {
     // 메시지 수신
     _socketService.onMessageReceived = (message) {
-      _messages.add(message);
-      notifyListeners();
+      // 현재 방의 메시지만 추가
+      if (_currentRoom != null && message.roomId == _currentRoom!.id) {
+        _messages.add(message);
+        notifyListeners();
+      }
+    };
+    
+    // 소켓 재연결 시
+    _socketService.onReconnected = () {
+      onSocketReconnected();
     };
 
     // 매칭 완료
@@ -57,15 +158,34 @@ class ChatProvider extends ChangeNotifier {
       _matchingState = MatchingState.matched;
       _messages = [];
       
+      // 상대방 정보 문자열 생성
+      final partnerInfo = StringBuffer();
+      partnerInfo.writeln('🎉 ${_partner!.nickname}님과 연결되었습니다!');
+      partnerInfo.writeln('');
+      
+      // MBTI 표시
+      if (_partner!.mbti.isNotEmpty) {
+        partnerInfo.writeln('📊 MBTI: ${_partner!.mbti}');
+      }
+      
+      // 관심사 표시
+      if (_partner!.interests.isNotEmpty) {
+        partnerInfo.writeln('💫 관심사: ${_partner!.interests.join(', ')}');
+      }
+      
       // 시스템 메시지 추가
       _messages.add(ChatMessage.systemMessage(
         roomId: _currentRoom!.id,
-        content: '${_partner!.nickname}님과 연결되었습니다!',
+        content: partnerInfo.toString().trim(),
       ));
       
       // 방 참가
       _socketService.joinRoom(_currentRoom!.id);
       _matchingState = MatchingState.chatting;
+      
+      // 세션 저장
+      saveSession();
+      
       notifyListeners();
     };
 
@@ -83,12 +203,36 @@ class ChatProvider extends ChangeNotifier {
       }
     };
 
-    // 상대방 연결 해제
+    // 상대방 연결 해제 (완전 종료)
     _socketService.onPartnerDisconnected = () {
       if (_currentRoom != null) {
         _messages.add(ChatMessage.systemMessage(
           roomId: _currentRoom!.id,
           content: '상대방이 채팅을 종료했습니다.',
+        ));
+        _partnerTyping = false;
+        notifyListeners();
+      }
+    };
+    
+    // 상대방 일시적 연결 끊김
+    _socketService.onPartnerConnectionLost = () {
+      if (_currentRoom != null) {
+        _messages.add(ChatMessage.systemMessage(
+          roomId: _currentRoom!.id,
+          content: '⏳ 상대방의 연결이 일시적으로 끊겼습니다. 재연결을 기다리는 중...',
+        ));
+        _partnerTyping = false;
+        notifyListeners();
+      }
+    };
+    
+    // 상대방 재연결
+    _socketService.onPartnerReconnected = () {
+      if (_currentRoom != null) {
+        _messages.add(ChatMessage.systemMessage(
+          roomId: _currentRoom!.id,
+          content: '🔌 상대방이 다시 연결되었습니다!',
         ));
         notifyListeners();
       }
@@ -220,6 +364,10 @@ class ChatProvider extends ChangeNotifier {
     _messages = [];
     _partnerTyping = false;
     _matchingState = MatchingState.idle;
+    
+    // 세션 삭제
+    clearSession();
+    
     notifyListeners();
   }
 

@@ -2,6 +2,7 @@
 class FriendModel {
   final String id;
   final String oderId;
+  final String friendUserId; // 친구 사용자 ID (DM용)
   final String nickname;
   final String? profileImage;
   final String status; // 'pending', 'accepted', 'rejected'
@@ -11,6 +12,7 @@ class FriendModel {
   FriendModel({
     required this.id,
     required this.oderId,
+    required this.friendUserId,
     required this.nickname,
     this.profileImage,
     required this.status,
@@ -19,9 +21,11 @@ class FriendModel {
   });
 
   factory FriendModel.fromJson(Map<String, dynamic> json) {
+    final oderId = json['oderId']?.toString() ?? json['userId']?.toString() ?? json['friendId']?.toString() ?? '';
     return FriendModel(
-      id: json['_id'] ?? json['id'] ?? '',
-      oderId: json['userId'] ?? json['friendId'] ?? '',
+      id: json['_id']?.toString() ?? json['id']?.toString() ?? '',
+      oderId: oderId,
+      friendUserId: json['friendUserId']?.toString() ?? oderId, // friendUserId가 없으면 oderId 사용
       nickname: json['nickname'] ?? '',
       profileImage: json['profileImage'],
       status: json['status'] ?? 'pending',
@@ -36,6 +40,7 @@ class FriendModel {
     return {
       'id': id,
       'friendId': oderId,
+      'friendUserId': friendUserId,
       'nickname': nickname,
       'profileImage': profileImage,
       'status': status,

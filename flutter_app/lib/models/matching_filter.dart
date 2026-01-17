@@ -1,19 +1,19 @@
 // 매칭 필터 모델
 class MatchingFilter {
   final String? preferredGender; // 'male', 'female', 'any'
-  final String? preferredMbti; // MBTI 유형 또는 'any'
-  final List<String> interests;
+  final List<String> preferredMbtis; // MBTI 유형 리스트 (중복 선택 가능)
+  final List<String> interests; // 관심사 리스트 (중복 선택 가능)
 
   MatchingFilter({
     this.preferredGender = 'any',
-    this.preferredMbti = 'any',
+    this.preferredMbtis = const [],
     this.interests = const [],
   });
 
   Map<String, dynamic> toJson() {
     return {
       'preferredGender': preferredGender,
-      'preferredMbti': preferredMbti,
+      'preferredMbtis': preferredMbtis,
       'interests': interests,
     };
   }
@@ -21,22 +21,28 @@ class MatchingFilter {
   factory MatchingFilter.fromJson(Map<String, dynamic> json) {
     return MatchingFilter(
       preferredGender: json['preferredGender'] ?? 'any',
-      preferredMbti: json['preferredMbti'] ?? 'any',
+      preferredMbtis: List<String>.from(json['preferredMbtis'] ?? []),
       interests: List<String>.from(json['interests'] ?? []),
     );
   }
 
   MatchingFilter copyWith({
     String? preferredGender,
-    String? preferredMbti,
+    List<String>? preferredMbtis,
     List<String>? interests,
   }) {
     return MatchingFilter(
       preferredGender: preferredGender ?? this.preferredGender,
-      preferredMbti: preferredMbti ?? this.preferredMbti,
+      preferredMbtis: preferredMbtis ?? this.preferredMbtis,
       interests: interests ?? this.interests,
     );
   }
+  
+  // 필터가 비어있는지 확인
+  bool get isEmpty => 
+    (preferredGender == null || preferredGender == 'any') &&
+    preferredMbtis.isEmpty &&
+    interests.isEmpty;
 }
 
 // MBTI 유형 목록

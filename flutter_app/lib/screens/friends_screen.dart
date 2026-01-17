@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../config/theme.dart';
 import '../services/api_service.dart';
 import '../models/friend_model.dart';
+import '../providers/auth_provider.dart';
 
 class FriendsScreen extends StatefulWidget {
   const FriendsScreen({super.key});
@@ -129,6 +131,39 @@ class _FriendsScreenState extends State<FriendsScreen>
     }
   }
 
+  // 친구와 DM 시작
+  Future<void> _startDM(FriendModel friend) async {
+    try {
+      // 로딩 표시
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(child: CircularProgressIndicator()),
+      );
+
+      // DM 채팅방 생성/조회
+      final response = await _apiService.post('/api/friends/dm/${friend.friendUserId}', {});
+      
+      if (!mounted) return;
+      Navigator.pop(context); // 로딩 닫기
+
+      // 채팅 화면으로 이동
+      context.push('/dm-chat', extra: {
+        'roomId': response['room']['id'],
+        'partner': response['partner'],
+        'isDM': true,
+      });
+    } catch (e) {
+      if (mounted) {
+        Navigator.pop(context); // 로딩 닫기
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('DM 시작 오류: $e')),
+        );
+      }
+      print('DM 시작 오류: $e');
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -251,74 +286,101 @@ class _FriendsScreenState extends State<FriendsScreen>
   }
 
   Widget _buildFriendTile(FriendModel friend) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 12),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: AppTheme.darkCard,
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Row(
-        children: [
-          // 프로필 이미지
-          Stack(
-            children: [
-              CircleAvatar(
-                radius: 24,
-                backgroundColor: AppTheme.primaryColor,
-                backgroundImage: friend.profileImage != null
-                    ? NetworkImage(friend.profileImage!)
-                    : null,
-                child: friend.profileImage == null
-                    ? const Icon(Icons.person, color: Colors.white)
-                    : null,
-              ),
-              if (friend.isOnline)
-                Positioned(
-                  right: 0,
-                  bottom: 0,
-                  child: Container(
-                    width: 12,
-                    height: 12,
-                    decoration: BoxDecoration(
-                      color: Colors.green,
-                      shape: BoxShape.circle,
-                      border: Border.all(color: AppTheme.darkCard, width: 2),
+    return GestureDetector(
+      onTap: () => _startDM(friend),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 12),
+        padding: const EdgeInsets.all(16),
+        decoration: BoxDecoration(
+          color: AppTheme.darkCard,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Row(
+          children: [
+            // 프로필 이미지
+            Stack(
+              children: [
+                CircleAvatar(
+                  radius: 24,
+                  backgroundColor: AppTheme.primaryColor,
+                  backgroundImage: friend.profileImage != null
+                      ? NetworkImage(friend.profileImage!)
+                      : null,
+                  child: friend.profileImage == null
+                      ? const Icon(Icons.person, color: Colors.white)
+                      : null,
+                ),
+                if (friend.isOnline)
+                  Positioned(
+                    right: 0,
+                    bottom: 0,
+                    child: Container(
+                      width: 12,
+                      height: 12,
+                      decoration: BoxDecoration(
+                        color: Colors.green,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: AppTheme.darkCard, width: 2),
+                      ),
                     ),
                   ),
-                ),
-            ],
-          ),
-          const SizedBox(width: 16),
-          // 닉네임
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  friend.nickname,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 16,
-                    fontWeight: FontWeight.w500,
+              ],
+            ),
+            const SizedBox(width: 16),
+            // 닉네임
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    friend.nickname,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 16,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                ),
-                Text(
-                  friend.isOnline ? '온라인' : '오프라인',
-                  style: TextStyle(
-                    color: friend.isOnline ? Colors.green : Colors.white38,
-                    fontSize: 12,
+                  const SizedBox(height: 2),
+                  Text(
+                    friend.isOnline ? '온라인' : '오프라인',
+                    style: TextStyle(
+                      color: friend.isOnline ? Colors.green : Colors.white38,
+                      fontSize: 12,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            // 메시지 버튼
+            IconButton(
+              onPressed: () => _startDM(friend),
+              icon: const Icon(Icons.chat_bubble_outline, color: AppTheme.primaryColor),
+              tooltip: 'DM 보내기',
+            ),
+            // 더보기 버튼
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, color: Colors.white38),
+              color: AppTheme.darkCard,
+              onSelected: (value) {
+                if (value == 'delete') {
+                  _deleteFriend(friend.id);
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'delete',
+                  child: Row(
+                    children: [
+                      Icon(Icons.person_remove, color: Colors.redAccent, size: 20),
+                      SizedBox(width: 8),
+                      Text('친구 삭제', style: TextStyle(color: Colors.redAccent)),
+                    ],
                   ),
                 ),
               ],
             ),
-          ),
-          // 삭제 버튼
-          IconButton(
-            onPressed: () => _deleteFriend(friend.id),
-            icon: const Icon(Icons.more_vert, color: Colors.white38),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

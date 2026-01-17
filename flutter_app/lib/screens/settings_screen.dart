@@ -84,7 +84,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         icon: Icons.block,
                         title: '차단 목록',
                         isDark: isDark,
-                        onTap: () => _showBlockedUsersDialog(context),
+                        onTap: () => context.push('/blocked-users'),
                       ),
                       _buildSettingItem(
                         icon: Icons.star,

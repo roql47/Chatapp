@@ -8,6 +8,7 @@ import '../models/matching_filter.dart';
 import '../config/theme.dart';
 import '../services/ad_service.dart';
 import '../services/storage_service.dart';
+import '../services/socket_service.dart';
 import '../widgets/profile_image_viewer.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -18,13 +19,17 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   late AnimationController _controller;
   late Animation<double> _pulseAnimation;
+  final SocketService _socketService = SocketService();
+  bool _checkedActiveChat = false;
 
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
+    
     _controller = AnimationController(
       duration: const Duration(milliseconds: 1500),
       vsync: this,
@@ -33,12 +38,75 @@ class _HomeScreenState extends State<HomeScreen>
     _pulseAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
       CurvedAnimation(parent: _controller, curve: Curves.easeInOut),
     );
+    
+    // 소켓 재연결 콜백 설정
+    _socketService.onReconnected = _onSocketReconnected;
+    
+    // 활성 채팅 확인
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkActiveChat();
+    });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _controller.dispose();
     super.dispose();
+  }
+  
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    final chatProvider = Provider.of<ChatProvider>(context, listen: false);
+    
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.inactive:
+        // 백그라운드로 전환 시 세션 저장
+        chatProvider.saveSession();
+        print('📱 앱 백그라운드 - 세션 저장');
+        break;
+      case AppLifecycleState.resumed:
+        // 포그라운드 복귀 시 소켓 재연결 및 세션 확인
+        _socketService.reconnect();
+        _checkActiveChat();
+        print('📱 앱 포그라운드 - 소켓 재연결');
+        break;
+      default:
+        break;
+    }
+  }
+  
+  void _onSocketReconnected() {
+    final chatProvider = Provider.of<ChatProvider>(context, listen: false);
+    chatProvider.onSocketReconnected();
+  }
+  
+  void _checkActiveChat() {
+    if (_checkedActiveChat) return;
+    
+    final chatProvider = Provider.of<ChatProvider>(context, listen: false);
+    
+    // 활성 채팅이 있으면 채팅 화면으로 이동
+    if (chatProvider.hasActiveChat && mounted) {
+      _checkedActiveChat = true;
+      
+      // 잠시 대기 후 이동 (UI 빌드 완료 대기)
+      Future.delayed(const Duration(milliseconds: 300), () {
+        if (mounted && chatProvider.hasActiveChat) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${chatProvider.partner?.nickname ?? "상대방"}님과의 채팅을 이어갑니다'),
+              duration: const Duration(seconds: 2),
+              action: SnackBarAction(
+                label: '채팅방 열기',
+                onPressed: () => context.push('/chat'),
+              ),
+            ),
+          );
+        }
+      });
+    }
   }
 
   Future<void> _startMatching() async {
@@ -1063,7 +1131,7 @@ class FilterBottomSheet extends StatefulWidget {
 
 class _FilterBottomSheetState extends State<FilterBottomSheet> {
   late String _selectedGender;
-  late String _selectedMbti;
+  late List<String> _selectedMbtis;
   late List<String> _selectedInterests;
 
   @override
@@ -1071,7 +1139,7 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
     super.initState();
     final chatProvider = Provider.of<ChatProvider>(context, listen: false);
     _selectedGender = chatProvider.filter.preferredGender ?? 'any';
-    _selectedMbti = chatProvider.filter.preferredMbti ?? 'any';
+    _selectedMbtis = List.from(chatProvider.filter.preferredMbtis);
     _selectedInterests = List.from(chatProvider.filter.interests);
   }
 
@@ -1079,10 +1147,18 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
     final chatProvider = Provider.of<ChatProvider>(context, listen: false);
     chatProvider.updateFilter(MatchingFilter(
       preferredGender: _selectedGender,
-      preferredMbti: _selectedMbti,
+      preferredMbtis: _selectedMbtis,
       interests: _selectedInterests,
     ));
     Navigator.pop(context);
+  }
+  
+  void _clearAllFilters() {
+    setState(() {
+      _selectedGender = 'any';
+      _selectedMbtis = [];
+      _selectedInterests = [];
+    });
   }
 
   @override
@@ -1164,33 +1240,58 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
             ],
           ),
           const SizedBox(height: 24),
-          // MBTI 필터
-          Text(
-            '상대방 MBTI',
-            style: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
+          // MBTI 필터 (중복 선택 가능)
+          Row(
+            children: [
+              Text(
+                '상대방 MBTI',
+                style: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
+              ),
+              const Spacer(),
+              if (_selectedMbtis.isNotEmpty)
+                Text(
+                  '${_selectedMbtis.length}개 선택',
+                  style: TextStyle(
+                    color: AppTheme.primaryColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 12),
           SizedBox(
-            height: 80,
+            height: 90,
             child: SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: [
-                  _buildMbtiChip('any', '상관없음', isDark),
-                  const SizedBox(width: 8),
-                  ...MbtiTypes.types.map((mbti) => Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: _buildMbtiChip(mbti, mbti, isDark),
-                  )).toList(),
-                ],
+              child: Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: MbtiTypes.types.map((mbti) {
+                  final isSelected = _selectedMbtis.contains(mbti);
+                  return _buildMbtiChip(mbti, mbti, isDark, isSelected);
+                }).toList(),
               ),
             ),
           ),
           const SizedBox(height: 24),
-          // 관심사 필터
-          Text(
-            '관심사',
-            style: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
+          // 관심사 필터 (중복 선택 가능)
+          Row(
+            children: [
+              Text(
+                '관심사',
+                style: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
+              ),
+              const Spacer(),
+              if (_selectedInterests.isNotEmpty)
+                Text(
+                  '${_selectedInterests.length}개 선택',
+                  style: TextStyle(
+                    color: AppTheme.primaryColor,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+            ],
           ),
           const SizedBox(height: 12),
           SizedBox(
@@ -1206,14 +1307,56 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
               ),
             ),
           ),
-          const SizedBox(height: 24),
-          // 저장 버튼
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              onPressed: _saveFilter,
-              child: const Text('저장'),
+          const SizedBox(height: 16),
+          // 30초 안내 메시지
+          Container(
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.blue.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: Colors.blue.withOpacity(0.3)),
             ),
+            child: Row(
+              children: [
+                Icon(Icons.info_outline, color: Colors.blue.shade400, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '30초 이상 대기 시 필터 없이 자동 매칭됩니다',
+                    style: TextStyle(
+                      color: Colors.blue.shade600,
+                      fontSize: 12,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+          // 버튼 행
+          Row(
+            children: [
+              // 초기화 버튼
+              Expanded(
+                child: OutlinedButton(
+                  onPressed: _clearAllFilters,
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: isDark ? Colors.white70 : Colors.black54,
+                    side: BorderSide(color: isDark ? Colors.white24 : Colors.black12),
+                  ),
+                  child: const Text('초기화'),
+                ),
+              ),
+              const SizedBox(width: 12),
+              // 저장 버튼
+              Expanded(
+                flex: 2,
+                child: ElevatedButton(
+                  onPressed: _saveFilter,
+                  child: const Text('저장'),
+                ),
+              ),
+            ],
           ),
           const SizedBox(height: 16),
         ],
@@ -1263,23 +1406,33 @@ class _FilterBottomSheetState extends State<FilterBottomSheet> {
     );
   }
 
-  Widget _buildMbtiChip(String value, String label, bool isDark) {
-    final isSelected = _selectedMbti == value;
+  Widget _buildMbtiChip(String value, String label, bool isDark, bool isSelected) {
     return GestureDetector(
-      onTap: () => setState(() => _selectedMbti = value),
+      onTap: () {
+        setState(() {
+          if (isSelected) {
+            _selectedMbtis.remove(value);
+          } else {
+            _selectedMbtis.add(value);
+          }
+        });
+      },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           color: isSelected 
-              ? AppTheme.primaryColor 
+              ? AppTheme.primaryColor.withOpacity(0.3) 
               : (isDark ? AppTheme.darkCard : Colors.grey.shade100),
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(
+            color: isSelected ? AppTheme.primaryColor : Colors.transparent,
+          ),
         ),
         child: Text(
           label,
           style: TextStyle(
             color: isSelected 
-                ? Colors.white 
+                ? (isDark ? Colors.white : AppTheme.primaryColor)
                 : (isDark ? Colors.white70 : Colors.black54),
             fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
             fontSize: 13,

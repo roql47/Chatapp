@@ -8,6 +8,11 @@ const authService = require('./authService');
 const GENDER_FILTER_COST = 10;  // 성별 필터 매칭 비용
 
 // ============================================
+// 필터 타임아웃 설정
+// ============================================
+const FILTER_TIMEOUT = 30 * 1000;  // 30초 후 필터 해제
+
+// ============================================
 // 🧪 테스트 모드 설정
 // ============================================
 const TEST_MODE = false;  // 테스트 모드 ON/OFF (터미널 클라이언트 사용 시 false)
@@ -94,6 +99,28 @@ const removeFromQueue = (userId) => {
   console.log(`매칭 대기열에서 제거: ${userId}, 현재 대기 인원: ${matchingQueue.size}`);
 };
 
+// 필터 타임아웃 확인 (30초 이상 대기 시 필터 해제)
+const isFilterExpired = (timestamp) => {
+  return Date.now() - timestamp > FILTER_TIMEOUT;
+};
+
+// MBTI 필터 일치 확인 (다중 선택 지원)
+const matchesMbtiFilter = (preferredMbtis, targetMbti) => {
+  // 필터가 없거나 비어있으면 매칭 허용
+  if (!preferredMbtis || preferredMbtis.length === 0) return true;
+  // 타겟 MBTI가 필터 목록에 포함되어 있으면 매칭
+  return preferredMbtis.includes(targetMbti);
+};
+
+// 관심사 필터 일치 확인 (하나라도 일치하면 매칭)
+const matchesInterestFilter = (preferredInterests, targetInterests) => {
+  // 필터가 없거나 비어있으면 매칭 허용
+  if (!preferredInterests || preferredInterests.length === 0) return true;
+  if (!targetInterests || targetInterests.length === 0) return false;
+  // 하나라도 일치하면 매칭
+  return preferredInterests.some(interest => targetInterests.includes(interest));
+};
+
 // 매칭 상대 찾기 (점수 기반)
 const findMatch = async (userId, filter) => {
   try {
@@ -108,13 +135,24 @@ const findMatch = async (userId, filter) => {
       return { error: `계정이 ${currentUser.sanctions.suspendedUntil.toLocaleDateString()}까지 정지되었습니다.` };
     }
 
-    const blockedUsers = currentUser.blockedUsers || [];
+    // 차단 목록을 문자열 배열로 변환 (ObjectId 비교 문제 해결)
+    const blockedUsers = (currentUser.blockedUsers || []).map(id => id.toString());
     const candidates = [];
+    
+    // 현재 사용자의 대기 시간 확인
+    const currentUserData = matchingQueue.get(userId);
+    const currentUserTimestamp = currentUserData?.timestamp || Date.now();
+    const isCurrentUserFilterExpired = isFilterExpired(currentUserTimestamp);
 
     // 매칭 대기열에서 후보 찾기
     for (const [candidateId, candidateData] of matchingQueue) {
       if (candidateId === userId) continue;
-      if (blockedUsers.includes(candidateId)) continue;
+      
+      // 차단 확인 (문자열로 비교)
+      if (blockedUsers.includes(candidateId.toString())) {
+        console.log(`🚫 차단된 사용자 스킵: ${userId} blocked ${candidateId}`);
+        continue;
+      }
 
       const candidateUser = candidateData.user || await User.findById(candidateId);
       if (!candidateUser) continue;
@@ -123,16 +161,41 @@ const findMatch = async (userId, filter) => {
       if (candidateUser.sanctions?.isBanned) continue;
       if (candidateUser.sanctions?.isSuspended && new Date() < candidateUser.sanctions.suspendedUntil) continue;
 
-      // 상대방의 차단 목록 확인
-      if (candidateUser.blockedUsers?.includes(userId)) continue;
-
-      // 성별 필터 확인
-      const candidateFilter = candidateData.filter || {};
-      if (filter.preferredGender && filter.preferredGender !== 'any') {
-        if (candidateUser.gender !== filter.preferredGender) continue;
+      // 상대방의 차단 목록 확인 (문자열로 비교)
+      const candidateBlockedUsers = (candidateUser.blockedUsers || []).map(id => id.toString());
+      if (candidateBlockedUsers.includes(userId.toString())) {
+        console.log(`🚫 상대방에게 차단됨 스킵: ${candidateId} blocked ${userId}`);
+        continue;
       }
-      if (candidateFilter.preferredGender && candidateFilter.preferredGender !== 'any') {
-        if (currentUser.gender !== candidateFilter.preferredGender) continue;
+
+      // 상대방의 대기 시간 확인
+      const isCandidateFilterExpired = isFilterExpired(candidateData.timestamp);
+      
+      // 둘 다 필터가 만료되지 않았을 때만 필터 적용
+      const applyFilters = !isCurrentUserFilterExpired && !isCandidateFilterExpired;
+      
+      if (applyFilters) {
+        // 성별 필터 확인
+        const candidateFilter = candidateData.filter || {};
+        if (filter.preferredGender && filter.preferredGender !== 'any') {
+          if (candidateUser.gender !== filter.preferredGender) continue;
+        }
+        if (candidateFilter.preferredGender && candidateFilter.preferredGender !== 'any') {
+          if (currentUser.gender !== candidateFilter.preferredGender) continue;
+        }
+        
+        // MBTI 필터 확인 (다중 선택)
+        if (!matchesMbtiFilter(filter.preferredMbtis, candidateUser.mbti)) continue;
+        if (!matchesMbtiFilter(candidateFilter.preferredMbtis, currentUser.mbti)) continue;
+        
+        // 관심사 필터 확인 (다중 선택, 하나라도 일치하면 OK)
+        if (!matchesInterestFilter(filter.interests, candidateUser.interests)) continue;
+        if (!matchesInterestFilter(candidateFilter.interests, currentUser.interests)) continue;
+      } else {
+        // 필터 만료 시 로그
+        if (isCurrentUserFilterExpired || isCandidateFilterExpired) {
+          console.log(`⏰ 필터 타임아웃! ${userId} 또는 ${candidateId} - 필터 없이 매칭`);
+        }
       }
 
       // 매칭 점수 계산
@@ -142,6 +205,7 @@ const findMatch = async (userId, filter) => {
         candidateId,
         candidateSocketId: candidateData.socketId,
         candidateUser,
+        filterBypassed: !applyFilters,
         ...matchInfo,
       });
     }
@@ -158,6 +222,7 @@ const findMatch = async (userId, filter) => {
       candidateUser: bestMatch.candidateUser,
       interestMatch: bestMatch.interestMatch,
       matchScore: bestMatch.score,
+      filterBypassed: bestMatch.filterBypassed,
     };
   } catch (error) {
     console.error('매칭 오류:', error);

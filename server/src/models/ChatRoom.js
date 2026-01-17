@@ -10,6 +10,10 @@ const chatRoomSchema = new mongoose.Schema({
     type: Boolean,
     default: true,
   },
+  isDM: {
+    type: Boolean,
+    default: false, // true면 친구 DM, false면 랜덤 매칭
+  },
   createdAt: {
     type: Date,
     default: Date.now,
@@ -23,5 +27,6 @@ const chatRoomSchema = new mongoose.Schema({
 // 인덱스 설정
 chatRoomSchema.index({ participants: 1 });
 chatRoomSchema.index({ isActive: 1 });
+chatRoomSchema.index({ isDM: 1 });
 
 module.exports = mongoose.model('ChatRoom', chatRoomSchema);

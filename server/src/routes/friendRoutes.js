@@ -2,6 +2,8 @@ const express = require('express');
 const router = express.Router();
 const Friend = require('../models/Friend');
 const User = require('../models/User');
+const ChatRoom = require('../models/ChatRoom');
+const Message = require('../models/Message');
 const authMiddleware = require('../middleware/auth');
 
 // 친구 요청 보내기
@@ -123,7 +125,8 @@ router.get('/list', authMiddleware, async (req, res) => {
         : f.requesterId;
       return {
         id: f._id,
-        oderId: friend._id,
+        oderId: friend._id, // 기존 호환성 유지
+        friendUserId: friend._id, // 친구 사용자 ID (DM용)
         nickname: friend.nickname,
         profileImage: friend.profileImage,
         isOnline: friend.isOnline,
@@ -205,6 +208,119 @@ router.delete('/:friendId', authMiddleware, async (req, res) => {
   } catch (error) {
     console.error('친구 삭제 오류:', error);
     res.status(500).json({ message: '친구 삭제에 실패했습니다.' });
+  }
+});
+
+// 친구와 DM 채팅방 생성 또는 조회
+router.post('/dm/:friendUserId', authMiddleware, async (req, res) => {
+  try {
+    const { friendUserId } = req.params;
+    const userId = req.userId;
+
+    // 친구 관계 확인
+    const friendship = await Friend.findOne({
+      $or: [
+        { requesterId: userId, receiverId: friendUserId, status: 'accepted' },
+        { requesterId: friendUserId, receiverId: userId, status: 'accepted' }
+      ]
+    });
+
+    if (!friendship) {
+      return res.status(403).json({ message: '친구만 DM을 보낼 수 있습니다.' });
+    }
+
+    // 기존 DM 채팅방 찾기 (isDM 플래그로 구분)
+    let chatRoom = await ChatRoom.findOne({
+      participants: { $all: [userId, friendUserId], $size: 2 },
+      isDM: true,
+    });
+
+    // 없으면 새로 생성
+    if (!chatRoom) {
+      chatRoom = await ChatRoom.create({
+        participants: [userId, friendUserId],
+        isDM: true,
+        isActive: true,
+      });
+    } else if (!chatRoom.isActive) {
+      // 비활성화된 채팅방 재활성화
+      chatRoom.isActive = true;
+      await chatRoom.save();
+    }
+
+    // 상대방 정보 조회
+    const friend = await User.findById(friendUserId).select('nickname profileImage isOnline gender interests mbti');
+
+    res.json({
+      room: {
+        id: chatRoom._id,
+        participants: chatRoom.participants,
+        createdAt: chatRoom.createdAt,
+        isDM: true,
+      },
+      partner: {
+        id: friend._id,
+        nickname: friend.nickname,
+        profileImage: friend.profileImage,
+        isOnline: friend.isOnline,
+        gender: friend.gender,
+        interests: friend.interests,
+        mbti: friend.mbti,
+      },
+    });
+  } catch (error) {
+    console.error('DM 채팅방 생성 오류:', error);
+    res.status(500).json({ message: 'DM 채팅방 생성에 실패했습니다.' });
+  }
+});
+
+// 친구 DM 채팅 기록 조회
+router.get('/dm/:friendUserId/messages', authMiddleware, async (req, res) => {
+  try {
+    const { friendUserId } = req.params;
+    const userId = req.userId;
+    const { limit = 50, before } = req.query;
+
+    // 친구 관계 확인
+    const friendship = await Friend.findOne({
+      $or: [
+        { requesterId: userId, receiverId: friendUserId, status: 'accepted' },
+        { requesterId: friendUserId, receiverId: userId, status: 'accepted' }
+      ]
+    });
+
+    if (!friendship) {
+      return res.status(403).json({ message: '친구만 DM을 조회할 수 있습니다.' });
+    }
+
+    // DM 채팅방 찾기
+    const chatRoom = await ChatRoom.findOne({
+      participants: { $all: [userId, friendUserId], $size: 2 },
+      isDM: true,
+    });
+
+    if (!chatRoom) {
+      return res.json({ messages: [], hasMore: false });
+    }
+
+    // 메시지 조회
+    const query = { roomId: chatRoom._id };
+    if (before) {
+      query.timestamp = { $lt: new Date(before) };
+    }
+
+    const messages = await Message.find(query)
+      .sort({ timestamp: -1 })
+      .limit(parseInt(limit));
+
+    res.json({
+      messages: messages.reverse(),
+      hasMore: messages.length === parseInt(limit),
+      roomId: chatRoom._id,
+    });
+  } catch (error) {
+    console.error('DM 메시지 조회 오류:', error);
+    res.status(500).json({ message: 'DM 메시지 조회에 실패했습니다.' });
   }
 });
 

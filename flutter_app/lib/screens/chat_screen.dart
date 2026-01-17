@@ -310,6 +310,9 @@ class _ChatScreenState extends State<ChatScreen> {
       imageUrl: partner.profileImage,
       nickname: partner.nickname,
       heroTag: 'partner_profile_${partner.id}',
+      mbti: partner.mbti,
+      interests: partner.interests,
+      gender: partner.gender,
     );
   }
 
@@ -687,29 +690,58 @@ class _ChatScreenState extends State<ChatScreen> {
   }
 
   void _showBlockDialog() {
+    final chatProvider = Provider.of<ChatProvider>(context, listen: false);
+    final partner = chatProvider.partner;
+    
+    if (partner == null) return;
+    
+    // 테스트 봇은 차단 불가
+    if (partner.id.startsWith('test_bot')) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('테스트 봇은 차단할 수 없습니다.')),
+      );
+      return;
+    }
+    
     showDialog(
       context: context,
-      builder: (context) => AlertDialog(
+      builder: (dialogContext) => AlertDialog(
         backgroundColor: AppTheme.darkSurface,
         title: const Text('차단하기', style: TextStyle(color: Colors.white)),
-        content: const Text(
-          '이 사용자를 차단하시겠습니까?\n차단하면 다시 매칭되지 않습니다.',
-          style: TextStyle(color: Colors.white70),
+        content: Text(
+          '${partner.nickname}님을 차단하시겠습니까?\n\n차단하면 다시 매칭되지 않으며, 설정에서 해제할 수 있습니다.',
+          style: const TextStyle(color: Colors.white70),
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.pop(context),
+            onPressed: () => Navigator.pop(dialogContext),
             child: const Text('취소'),
           ),
           ElevatedButton(
-            onPressed: () {
-              Navigator.pop(context);
-              final chatProvider = Provider.of<ChatProvider>(context, listen: false);
-              chatProvider.endChat();
-              context.go('/home');
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('사용자를 차단했습니다.')),
-              );
+            onPressed: () async {
+              Navigator.pop(dialogContext);
+              
+              try {
+                // 차단 API 호출
+                final apiService = ApiService();
+                await apiService.post('/api/auth/block/${partner.id}', {});
+                
+                // 채팅 종료
+                chatProvider.endChat();
+                
+                if (mounted) {
+                  context.go('/home');
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('${partner.nickname}님을 차단했습니다.')),
+                  );
+                }
+              } catch (e) {
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(content: Text('차단 실패: $e')),
+                  );
+                }
+              }
             },
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.errorColor,

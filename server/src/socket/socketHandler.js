@@ -7,6 +7,11 @@ const ChatRoom = require('../models/ChatRoom');
 // 소켓 ID와 사용자 ID 매핑
 const userSockets = new Map(); // userId -> socketId
 const socketUsers = new Map(); // socketId -> userId
+const userRooms = new Map(); // userId -> roomId (현재 참여 중인 채팅방)
+const disconnectTimers = new Map(); // userId -> setTimeout ID (재연결 대기 타이머)
+
+// 재연결 대기 시간 (30초)
+const RECONNECT_GRACE_PERIOD = 30 * 1000;
 
 const setupSocketHandlers = (io) => {
   // TEST_MODE용: "테스트 봇" 대화방 추적 (roomId -> true)
@@ -91,7 +96,9 @@ const setupSocketHandlers = (io) => {
             profileImage: result.partner.profileImage,
             gender: result.partner.gender,
             interests: result.partner.interests,
+            mbti: result.partner.mbti,
           },
+          filterBypassed: result.filterBypassed || false,
         });
 
         // 상대방에게 매칭 정보 전송
@@ -107,11 +114,85 @@ const setupSocketHandlers = (io) => {
             profileImage: result.currentUser.profileImage,
             gender: result.currentUser.gender,
             interests: result.currentUser.interests,
+            mbti: result.currentUser.mbti,
           },
+          filterBypassed: result.filterBypassed || false,
         });
 
-        console.log(`매칭 성공: ${userId} <-> ${result.partner._id}`);
-      } else if (matchingService.TEST_MODE) {
+        console.log(`매칭 성공: ${userId} <-> ${result.partner._id}${result.filterBypassed ? ' (필터 타임아웃으로 필터 무시)' : ''}`);
+      } else if (result.waiting) {
+        // 대기 중 - 30초 후 필터 해제하고 재매칭 시도
+        socket.emit('matching_waiting', { 
+          message: '매칭 대기 중입니다...',
+          filterTimeout: 30,
+        });
+        
+        // 30초 후 재매칭 시도 (필터 해제됨)
+        setTimeout(async () => {
+          // 아직 매칭 대기 중인지 확인
+          if (matchingService.getQueueSize() > 0) {
+            console.log(`⏰ ${userId}: 30초 경과 - 필터 없이 재매칭 시도`);
+            
+            // 필터 해제 알림
+            socket.emit('filter_expired', { 
+              message: '30초 경과로 필터가 해제되어 모든 사용자와 매칭됩니다.',
+            });
+            
+            // 재매칭 시도
+            const retryResult = await matchingService.findMatch(userId, filter || {});
+            
+            if (retryResult && !retryResult.error) {
+              // 매칭 성공
+              matchingService.removeFromQueue(userId);
+              matchingService.removeFromQueue(retryResult.candidateId);
+              
+              const room = await matchingService.createChatRoom(userId, retryResult.candidateId);
+              const currentUser = await User.findById(userId).select('-blockedUsers -sanctions');
+              
+              // 현재 사용자에게 매칭 정보 전송
+              socket.emit('match_found', {
+                room: {
+                  id: room._id,
+                  participants: room.participants,
+                  createdAt: room.createdAt,
+                },
+                partner: {
+                  id: retryResult.candidateUser._id,
+                  nickname: retryResult.candidateUser.nickname,
+                  profileImage: retryResult.candidateUser.profileImage,
+                  gender: retryResult.candidateUser.gender,
+                  interests: retryResult.candidateUser.interests,
+                  mbti: retryResult.candidateUser.mbti,
+                },
+                filterBypassed: true,
+              });
+              
+              // 상대방에게 매칭 정보 전송
+              io.to(retryResult.candidateSocketId).emit('match_found', {
+                room: {
+                  id: room._id,
+                  participants: room.participants,
+                  createdAt: room.createdAt,
+                },
+                partner: {
+                  id: currentUser._id,
+                  nickname: currentUser.nickname,
+                  profileImage: currentUser.profileImage,
+                  gender: currentUser.gender,
+                  interests: currentUser.interests,
+                  mbti: currentUser.mbti,
+                },
+                filterBypassed: true,
+              });
+              
+              console.log(`⏰ 재매칭 성공 (필터 타임아웃): ${userId} <-> ${retryResult.candidateId}`);
+            }
+          }
+        }, 30 * 1000); // 30초 후
+      }
+      
+      // 테스트 모드
+      if (matchingService.TEST_MODE && result.waiting) {
         // 🧪 테스트 모드: 일정 시간 후 테스트 봇과 자동 매칭
         console.log(`🧪 테스트 모드: ${matchingService.TEST_MATCH_DELAY/1000}초 후 테스트 봇과 매칭 예정`);
         
@@ -190,22 +271,44 @@ const setupSocketHandlers = (io) => {
     socket.on('join_room', (data) => {
       const { roomId } = data;
       socket.join(roomId);
+      userRooms.set(userId, roomId);
+      
+      // 재연결 타이머가 있으면 취소 (재연결 성공)
+      if (disconnectTimers.has(userId)) {
+        clearTimeout(disconnectTimers.get(userId));
+        disconnectTimers.delete(userId);
+        console.log(`🔌 ${userId} 재연결 성공 - 채팅방 유지: ${roomId}`);
+        
+        // 상대방에게 재연결 알림
+        socket.to(roomId).emit('partner_reconnected', { oderId: userId });
+      }
+      
       console.log(`방 참가: ${userId} -> ${roomId}`);
     });
 
-    // 채팅방 나가기
+    // 채팅방 나가기 (명시적 종료)
     socket.on('leave_room', async (data) => {
       const { roomId } = data;
       socket.leave(roomId);
       testBotRooms.delete(roomId);
+      userRooms.delete(userId);
       
-      // 상대방에게 알림
-      socket.to(roomId).emit('partner_disconnected');
+      // 재연결 타이머가 있으면 취소
+      if (disconnectTimers.has(userId)) {
+        clearTimeout(disconnectTimers.get(userId));
+        disconnectTimers.delete(userId);
+      }
+      
+      // 상대방에게 알림 (명시적 종료이므로 즉시 알림)
+      socket.to(roomId).emit('partner_disconnected', { 
+        reason: 'left',
+        message: '상대방이 채팅을 종료했습니다.',
+      });
       
       // 채팅방 종료
       await matchingService.endChatRoom(roomId);
       
-      console.log(`방 나감: ${userId} <- ${roomId}`);
+      console.log(`방 나감 (명시적 종료): ${userId} <- ${roomId}`);
     });
 
     // 메시지 전송
@@ -324,7 +427,7 @@ const setupSocketHandlers = (io) => {
       console.log(`통화 종료: ${userId} in ${roomId}`);
     });
 
-    // 연결 해제
+    // 연결 해제 (네트워크 끊김/백그라운드 등)
     socket.on('disconnect', async () => {
       console.log(`사용자 연결 해제: ${userId}`);
       
@@ -340,6 +443,39 @@ const setupSocketHandlers = (io) => {
         isOnline: false,
         lastActive: new Date(),
       });
+      
+      // 채팅방에 있었다면 재연결 대기
+      const roomId = userRooms.get(userId);
+      if (roomId) {
+        console.log(`⏳ ${userId}: 재연결 대기 시작 (${RECONNECT_GRACE_PERIOD / 1000}초)`);
+        
+        // 상대방에게 일시적 연결 끊김 알림
+        io.to(roomId).emit('partner_connection_lost', {
+          oderId: userId,
+          message: '상대방의 연결이 일시적으로 끊겼습니다. 재연결을 기다리는 중...',
+        });
+        
+        // 30초 후에도 재연결이 없으면 채팅방 종료
+        const timer = setTimeout(async () => {
+          // 아직 재연결이 안 됐는지 확인
+          if (!userSockets.has(userId)) {
+            console.log(`⏰ ${userId}: 재연결 타임아웃 - 채팅방 종료`);
+            
+            // 상대방에게 연결 끊김 알림
+            io.to(roomId).emit('partner_disconnected', {
+              reason: 'timeout',
+              message: '상대방과의 연결이 끊어졌습니다.',
+            });
+            
+            // 채팅방 종료
+            await matchingService.endChatRoom(roomId);
+            userRooms.delete(userId);
+          }
+          disconnectTimers.delete(userId);
+        }, RECONNECT_GRACE_PERIOD);
+        
+        disconnectTimers.set(userId, timer);
+      }
     });
   });
 

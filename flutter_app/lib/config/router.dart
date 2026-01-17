@@ -8,12 +8,14 @@ import '../screens/profile_setup_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/matching_screen.dart';
 import '../screens/chat_screen.dart';
+import '../screens/dm_chat_screen.dart';
 import '../screens/video_call_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/point_shop_screen.dart';
 import '../screens/friends_screen.dart';
 import '../screens/vip_shop_screen.dart';
 import '../screens/chat_history_screen.dart';
+import '../screens/blocked_users_screen.dart';
 
 class AppRouter {
   static final GoRouter router = GoRouter(
@@ -82,6 +84,27 @@ class AppRouter {
         path: '/chat-history',
         name: 'chat-history',
         builder: (context, state) => const ChatHistoryScreen(),
+      ),
+      GoRoute(
+        path: '/dm-chat',
+        name: 'dm-chat',
+        builder: (context, state) {
+          final extra = state.extra as Map<String, dynamic>?;
+          if (extra == null) {
+            return const Scaffold(
+              body: Center(child: Text('잘못된 접근입니다.')),
+            );
+          }
+          return DMChatScreen(
+            roomId: extra['roomId'] ?? '',
+            partner: extra['partner'] ?? {},
+          );
+        },
+      ),
+      GoRoute(
+        path: '/blocked-users',
+        name: 'blocked-users',
+        builder: (context, state) => const BlockedUsersScreen(),
       ),
     ],
     redirect: (context, state) {

@@ -8,12 +8,18 @@ class ProfileImageViewer extends StatelessWidget {
   final String? imageUrl;
   final String nickname;
   final String? heroTag;
+  final String? mbti;
+  final List<String>? interests;
+  final String? gender;
 
   const ProfileImageViewer({
     super.key,
     this.imageUrl,
     required this.nickname,
     this.heroTag,
+    this.mbti,
+    this.interests,
+    this.gender,
   });
 
   /// 프로필 이미지 뷰어를 다이얼로그로 표시
@@ -21,6 +27,9 @@ class ProfileImageViewer extends StatelessWidget {
     String? imageUrl,
     required String nickname,
     String? heroTag,
+    String? mbti,
+    List<String>? interests,
+    String? gender,
   }) {
     Navigator.of(context).push(
       PageRouteBuilder(
@@ -32,6 +41,9 @@ class ProfileImageViewer extends StatelessWidget {
             imageUrl: imageUrl,
             nickname: nickname,
             heroTag: heroTag,
+            mbti: mbti,
+            interests: interests,
+            gender: gender,
           );
         },
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
@@ -57,22 +69,97 @@ class ProfileImageViewer extends StatelessWidget {
           ),
           // 이미지 뷰어
           Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // 닉네임 표시
-                Text(
-                  nickname,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // 닉네임 표시
+                  Text(
+                    nickname,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 24,
+                      fontWeight: FontWeight.bold,
+                    ),
                   ),
-                ),
-                const SizedBox(height: 20),
-                // 이미지
-                _buildImageContent(context),
-              ],
+                  const SizedBox(height: 8),
+                  // 성별 표시
+                  if (gender != null && gender!.isNotEmpty)
+                    Text(
+                      gender == 'male' ? '👨 남성' : gender == 'female' ? '👩 여성' : '🧑 기타',
+                      style: TextStyle(
+                        color: Colors.white.withOpacity(0.8),
+                        fontSize: 16,
+                      ),
+                    ),
+                  const SizedBox(height: 20),
+                  // 이미지
+                  _buildImageContent(context),
+                  const SizedBox(height: 24),
+                  // MBTI 표시
+                  if (mbti != null && mbti!.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+                      decoration: BoxDecoration(
+                        color: AppTheme.primaryColor.withOpacity(0.3),
+                        borderRadius: BorderRadius.circular(20),
+                        border: Border.all(color: AppTheme.primaryColor.withOpacity(0.5)),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text('📊 MBTI: ', style: TextStyle(color: Colors.white70, fontSize: 16)),
+                          Text(
+                            mbti!,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  // 관심사 표시
+                  if (interests != null && interests!.isNotEmpty)
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      margin: const EdgeInsets.symmetric(horizontal: 24),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        children: [
+                          const Text(
+                            '💫 관심사',
+                            style: TextStyle(color: Colors.white70, fontSize: 14),
+                          ),
+                          const SizedBox(height: 12),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 8,
+                            alignment: WrapAlignment.center,
+                            children: interests!.map((interest) => Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: AppTheme.secondaryColor.withOpacity(0.3),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(color: AppTheme.secondaryColor.withOpacity(0.5)),
+                              ),
+                              child: Text(
+                                interest,
+                                style: const TextStyle(color: Colors.white, fontSize: 14),
+                              ),
+                            )).toList(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 40),
+                ],
+              ),
             ),
           ),
           // 닫기 버튼
