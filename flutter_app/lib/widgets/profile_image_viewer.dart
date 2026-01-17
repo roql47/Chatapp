@@ -89,12 +89,23 @@ class ProfileImageViewer extends StatelessWidget {
                   const SizedBox(height: 8),
                   // 성별 표시
                   if (gender != null && gender!.isNotEmpty)
-                    Text(
-                      gender == 'male' ? '👨 남성' : gender == 'female' ? '👩 여성' : '🧑 기타',
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(0.8),
-                        fontSize: 16,
-                      ),
+                    Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          gender == 'male' ? Icons.male : gender == 'female' ? Icons.female : Icons.person,
+                          color: gender == 'male' ? Colors.blue : gender == 'female' ? Colors.pink : Colors.grey,
+                          size: 20,
+                        ),
+                        const SizedBox(width: 6),
+                        Text(
+                          gender == 'male' ? '남성' : gender == 'female' ? '여성' : '기타',
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.8),
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
                     ),
                   const SizedBox(height: 20),
                   // 이미지
@@ -112,7 +123,9 @@ class ProfileImageViewer extends StatelessWidget {
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Text('📊 MBTI: ', style: TextStyle(color: Colors.white70, fontSize: 16)),
+                          const Icon(Icons.psychology, color: Colors.white70, size: 18),
+                          const SizedBox(width: 8),
+                          const Text('MBTI: ', style: TextStyle(color: Colors.white70, fontSize: 16)),
                           Text(
                             mbti!,
                             style: const TextStyle(

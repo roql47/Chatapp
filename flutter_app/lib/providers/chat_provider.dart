@@ -222,7 +222,7 @@ class ChatProvider extends ChangeNotifier {
       if (_currentRoom != null) {
         _messages.add(ChatMessage.systemMessage(
           roomId: _currentRoom!.id,
-          content: '⏳ 상대방의 연결이 일시적으로 끊겼습니다. 재연결을 기다리는 중...',
+          content: '상대방의 연결이 일시적으로 끊겼습니다. 재연결을 기다리는 중...',
         ));
         _partnerTyping = false;
         notifyListeners();
@@ -234,7 +234,7 @@ class ChatProvider extends ChangeNotifier {
       if (_currentRoom != null) {
         _messages.add(ChatMessage.systemMessage(
           roomId: _currentRoom!.id,
-          content: '🔌 상대방이 다시 연결되었습니다!',
+          content: '상대방이 다시 연결되었습니다!',
         ));
         notifyListeners();
       }

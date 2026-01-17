@@ -78,8 +78,8 @@ class _ChatHistoryScreenState extends State<ChatHistoryScreen> {
     if (lastMessage == null) return '메시지 없음';
     
     final type = lastMessage['type'];
-    if (type == 'image') return '📷 이미지';
-    if (type == 'system') return '🔔 시스템 메시지';
+    if (type == 'image') return '[이미지]';
+    if (type == 'system') return '[시스템]';
     
     final content = lastMessage['content'] ?? '';
     return content.length > 30 ? '${content.substring(0, 30)}...' : content;
