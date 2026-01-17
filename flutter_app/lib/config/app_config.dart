@@ -1,14 +1,8 @@
-import 'dart:io';
-
 // 앱 설정 파일
 class AppConfig {
-  // 서버 URL (개발 환경)
-  // Android 에뮬레이터: 10.0.2.2, iOS 시뮬레이터: localhost, 실제 기기: 실제 IP
+  // 서버 URL (프로덕션 - AWS Lightsail)
   static String get serverUrl {
-    if (Platform.isAndroid) {
-      return 'http://10.0.2.2:3000'; // Android 에뮬레이터
-    }
-    return 'http://localhost:3000'; // iOS 또는 기타
+    return 'http://52.79.154.253:3000'; // AWS Lightsail 서버
   }
   
   // 카카오 앱 키
