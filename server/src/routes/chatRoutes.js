@@ -88,4 +88,78 @@ router.get('/room/:roomId/messages', authMiddleware, async (req, res) => {
   }
 });
 
+// 특정 채팅방 기록 삭제 (해당 사용자의 기록만)
+router.delete('/room/:roomId', authMiddleware, async (req, res) => {
+  try {
+    const { roomId } = req.params;
+    const userId = req.userId;
+
+    // 채팅방 존재 확인 및 참여자 확인
+    const chatRoom = await ChatRoom.findById(roomId);
+    if (!chatRoom) {
+      return res.status(404).json({ message: '채팅방을 찾을 수 없습니다.' });
+    }
+
+    // 사용자가 채팅방 참여자인지 확인
+    if (!chatRoom.participants.some(p => p.toString() === userId)) {
+      return res.status(403).json({ message: '권한이 없습니다.' });
+    }
+
+    // 채팅방에서 사용자 제거 (soft delete)
+    chatRoom.participants = chatRoom.participants.filter(p => p.toString() !== userId);
+    
+    // 참여자가 모두 없으면 채팅방과 메시지 완전 삭제
+    if (chatRoom.participants.length === 0) {
+      await Message.deleteMany({ roomId });
+      await ChatRoom.findByIdAndDelete(roomId);
+      console.log(`🗑️ 채팅방 완전 삭제: ${roomId}`);
+    } else {
+      await chatRoom.save();
+      console.log(`🗑️ 채팅방에서 사용자 제거: ${userId} from ${roomId}`);
+    }
+
+    res.json({ message: '채팅 기록이 삭제되었습니다.' });
+  } catch (error) {
+    console.error('채팅 기록 삭제 오류:', error);
+    res.status(500).json({ message: '채팅 기록 삭제에 실패했습니다.' });
+  }
+});
+
+// 전체 채팅 기록 삭제
+router.delete('/history/all', authMiddleware, async (req, res) => {
+  try {
+    const userId = req.userId;
+
+    // 사용자가 참여한 모든 채팅방 찾기
+    const chatRooms = await ChatRoom.find({ participants: userId });
+    
+    let deletedCount = 0;
+    
+    for (const room of chatRooms) {
+      // 채팅방에서 사용자 제거
+      room.participants = room.participants.filter(p => p.toString() !== userId);
+      
+      // 참여자가 모두 없으면 완전 삭제
+      if (room.participants.length === 0) {
+        await Message.deleteMany({ roomId: room._id });
+        await ChatRoom.findByIdAndDelete(room._id);
+      } else {
+        await room.save();
+      }
+      
+      deletedCount++;
+    }
+
+    console.log(`🗑️ 전체 채팅 기록 삭제: ${userId}, ${deletedCount}개 채팅방`);
+
+    res.json({ 
+      message: '전체 채팅 기록이 삭제되었습니다.',
+      deletedCount,
+    });
+  } catch (error) {
+    console.error('전체 채팅 기록 삭제 오류:', error);
+    res.status(500).json({ message: '전체 채팅 기록 삭제에 실패했습니다.' });
+  }
+});
+
 module.exports = router;

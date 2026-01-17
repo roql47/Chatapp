@@ -114,8 +114,41 @@ class _ChatScreenState extends State<ChatScreen> {
 
     final imageFile = await _storageService.pickImageFromGallery();
     if (imageFile != null) {
-      await chatProvider.sendImageMessage(imageFile, user.id, user.nickname);
-      _scrollToBottom();
+      // 로딩 표시
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                SizedBox(
+                  width: 20, 
+                  height: 20, 
+                  child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
+                ),
+                SizedBox(width: 12),
+                Text('이미지 전송 중...'),
+              ],
+            ),
+            duration: Duration(seconds: 10),
+          ),
+        );
+      }
+      
+      final success = await chatProvider.sendImageMessage(imageFile, user.id, user.nickname);
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        if (success) {
+          _scrollToBottom();
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('이미지 전송에 실패했습니다'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
     }
   }
 
@@ -425,6 +458,7 @@ class _ChatScreenState extends State<ChatScreen> {
       mbti: partner.mbti,
       interests: partner.interests,
       gender: partner.gender,
+      createdAt: partner.createdAt,
     );
   }
 

@@ -30,7 +30,14 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
     
     await callProvider.initialize();
     
-    if (chatProvider.currentRoom != null) {
+    // 이미 ringing 상태면 통화 수락 (수신 측)
+    if (callProvider.callState == CallState.ringing) {
+      print('📞 수신 통화 수락 중...');
+      await callProvider.acceptCall();
+    }
+    // idle 상태면 새 통화 시작 (발신 측)
+    else if (chatProvider.currentRoom != null && callProvider.callState == CallState.idle) {
+      print('📞 통화 발신 중...');
       await callProvider.startCall(
         chatProvider.currentRoom!.id,
         widget.callType == 'video' ? CallType.video : CallType.audio,

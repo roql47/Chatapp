@@ -11,6 +11,7 @@ class ProfileImageViewer extends StatelessWidget {
   final String? mbti;
   final List<String>? interests;
   final String? gender;
+  final DateTime? createdAt;
 
   const ProfileImageViewer({
     super.key,
@@ -20,6 +21,7 @@ class ProfileImageViewer extends StatelessWidget {
     this.mbti,
     this.interests,
     this.gender,
+    this.createdAt,
   });
 
   /// 프로필 이미지 뷰어를 다이얼로그로 표시
@@ -30,6 +32,7 @@ class ProfileImageViewer extends StatelessWidget {
     String? mbti,
     List<String>? interests,
     String? gender,
+    DateTime? createdAt,
   }) {
     Navigator.of(context).push(
       PageRouteBuilder(
@@ -44,6 +47,7 @@ class ProfileImageViewer extends StatelessWidget {
             mbti: mbti,
             interests: interests,
             gender: gender,
+            createdAt: createdAt,
           );
         },
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
@@ -132,9 +136,16 @@ class ProfileImageViewer extends StatelessWidget {
                       ),
                       child: Column(
                         children: [
-                          const Text(
-                            '💫 관심사',
-                            style: TextStyle(color: Colors.white70, fontSize: 14),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: const [
+                              Icon(Icons.favorite, color: Colors.white70, size: 16),
+                              SizedBox(width: 6),
+                              Text(
+                                '관심사',
+                                style: TextStyle(color: Colors.white70, fontSize: 14),
+                              ),
+                            ],
                           ),
                           const SizedBox(height: 12),
                           Wrap(
@@ -153,6 +164,29 @@ class ProfileImageViewer extends StatelessWidget {
                                 style: const TextStyle(color: Colors.white, fontSize: 14),
                               ),
                             )).toList(),
+                          ),
+                        ],
+                      ),
+                    ),
+                  const SizedBox(height: 16),
+                  // 가입일 표시
+                  if (createdAt != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                      margin: const EdgeInsets.symmetric(horizontal: 24),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          const Icon(Icons.calendar_today, color: Colors.white70, size: 16),
+                          const SizedBox(width: 8),
+                          Text(
+                            '가입일: ${_formatJoinDate(createdAt!)}',
+                            style: const TextStyle(color: Colors.white70, fontSize: 14),
                           ),
                         ],
                       ),
@@ -227,6 +261,25 @@ class ProfileImageViewer extends StatelessWidget {
     }
 
     return imageWidget;
+  }
+
+  String _formatJoinDate(DateTime date) {
+    final now = DateTime.now();
+    final difference = now.difference(date);
+    
+    if (difference.inDays == 0) {
+      return '오늘 가입';
+    } else if (difference.inDays == 1) {
+      return '어제 가입';
+    } else if (difference.inDays < 7) {
+      return '${difference.inDays}일 전 가입';
+    } else if (difference.inDays < 30) {
+      return '${(difference.inDays / 7).floor()}주 전 가입';
+    } else if (difference.inDays < 365) {
+      return '${(difference.inDays / 30).floor()}개월 전 가입';
+    } else {
+      return '${date.year}.${date.month.toString().padLeft(2, '0')}.${date.day.toString().padLeft(2, '0')}';
+    }
   }
 
   Widget _buildDefaultAvatar(double size) {

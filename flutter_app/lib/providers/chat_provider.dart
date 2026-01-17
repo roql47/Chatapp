@@ -344,27 +344,37 @@ class ChatProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  // 이미지 전송
-  Future<void> sendImageMessage(File imageFile, String senderId, String senderNickname) async {
-    if (_currentRoom == null) return;
+  // 이미지 전송 - 성공 여부 반환
+  Future<bool> sendImageMessage(File imageFile, String senderId, String senderNickname) async {
+    if (_currentRoom == null) return false;
 
-    // 이미지 업로드
-    final imageUrl = await _storageService.uploadImage(imageFile);
-    if (imageUrl == null) return;
+    try {
+      // 이미지 업로드
+      final imageUrl = await _storageService.uploadImage(imageFile);
+      if (imageUrl == null) {
+        print('❌ 이미지 업로드 실패');
+        return false;
+      }
 
-    final message = ChatMessage(
-      id: DateTime.now().millisecondsSinceEpoch.toString(),
-      roomId: _currentRoom!.id,
-      senderId: senderId,
-      senderNickname: senderNickname,
-      content: imageUrl,
-      type: MessageType.image,
-      timestamp: DateTime.now(),
-    );
+      final message = ChatMessage(
+        id: DateTime.now().millisecondsSinceEpoch.toString(),
+        roomId: _currentRoom!.id,
+        senderId: senderId,
+        senderNickname: senderNickname,
+        content: imageUrl,
+        type: MessageType.image,
+        timestamp: DateTime.now(),
+      );
 
-    _messages.add(message);
-    _socketService.sendMessage(message);
-    notifyListeners();
+      _messages.add(message);
+      _socketService.sendMessage(message);
+      notifyListeners();
+      print('✅ 이미지 전송 성공: $imageUrl');
+      return true;
+    } catch (e) {
+      print('❌ 이미지 전송 오류: $e');
+      return false;
+    }
   }
 
   // 타이핑 상태 전송

@@ -85,6 +85,128 @@ class _ChatHistoryScreenState extends State<ChatHistoryScreen> {
     return content.length > 30 ? '${content.substring(0, 30)}...' : content;
   }
 
+  // 전체 삭제 확인
+  void _confirmDeleteAll() {
+    final themeProvider = context.read<ThemeProvider>();
+    final isDark = themeProvider.themeMode == ThemeMode.dark;
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF1a1a2e) : Colors.white,
+        title: Text(
+          '전체 채팅 기록 삭제',
+          style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+        ),
+        content: Text(
+          '모든 채팅 기록을 삭제하시겠습니까?\n이 작업은 되돌릴 수 없습니다.',
+          style: TextStyle(color: isDark ? Colors.grey[300] : Colors.grey[700]),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('취소', style: TextStyle(color: Colors.grey[500])),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteAllHistory();
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('삭제', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 전체 삭제 실행
+  Future<void> _deleteAllHistory() async {
+    try {
+      final apiService = ApiService();
+      await apiService.delete('/api/chat/history/all');
+      
+      setState(() {
+        _chatHistory.clear();
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('전체 채팅 기록이 삭제되었습니다')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('삭제 실패: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
+  // 개별 삭제 확인
+  void _confirmDeleteChat(Map<String, dynamic> chat) {
+    final themeProvider = context.read<ThemeProvider>();
+    final isDark = themeProvider.themeMode == ThemeMode.dark;
+    final partner = chat['partner'] as Map<String, dynamic>?;
+    final partnerNickname = partner?['nickname'] ?? '알 수 없음';
+
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        backgroundColor: isDark ? const Color(0xFF1a1a2e) : Colors.white,
+        title: Text(
+          '채팅 기록 삭제',
+          style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+        ),
+        content: Text(
+          '$partnerNickname님과의 채팅 기록을 삭제하시겠습니까?',
+          style: TextStyle(color: isDark ? Colors.grey[300] : Colors.grey[700]),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: Text('취소', style: TextStyle(color: Colors.grey[500])),
+          ),
+          ElevatedButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _deleteChatHistory(chat);
+            },
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('삭제', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // 개별 삭제 실행
+  Future<void> _deleteChatHistory(Map<String, dynamic> chat) async {
+    final roomId = chat['roomId'];
+    
+    try {
+      final apiService = ApiService();
+      await apiService.delete('/api/chat/room/$roomId');
+      
+      setState(() {
+        _chatHistory.removeWhere((c) => c['roomId'] == roomId);
+      });
+      
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('채팅 기록이 삭제되었습니다')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('삭제 실패: $e'), backgroundColor: Colors.red),
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final themeProvider = context.watch<ThemeProvider>();
@@ -116,6 +238,27 @@ class _ChatHistoryScreenState extends State<ChatHistoryScreen> {
             icon: const Icon(Icons.refresh, color: Colors.white),
             onPressed: _loadChatHistory,
           ),
+          if (_chatHistory.isNotEmpty)
+            PopupMenuButton<String>(
+              icon: const Icon(Icons.more_vert, color: Colors.white),
+              onSelected: (value) {
+                if (value == 'delete_all') {
+                  _confirmDeleteAll();
+                }
+              },
+              itemBuilder: (context) => [
+                const PopupMenuItem(
+                  value: 'delete_all',
+                  child: Row(
+                    children: [
+                      Icon(Icons.delete_sweep, color: Colors.red),
+                      SizedBox(width: 8),
+                      Text('전체 삭제', style: TextStyle(color: Colors.red)),
+                    ],
+                  ),
+                ),
+              ],
+            ),
         ],
       ),
       body: _buildBody(isDark, theme),
@@ -212,12 +355,56 @@ class _ChatHistoryScreenState extends State<ChatHistoryScreen> {
     final lastMessage = chat['lastMessage'] as Map<String, dynamic>?;
     final isActive = chat['isActive'] ?? false;
     final messageCount = chat['messageCount'] ?? 0;
+    final roomId = chat['roomId']?.toString() ?? '';
 
     final partnerNickname = partner?['nickname'] ?? '알 수 없음';
     final partnerImage = partner?['profileImage'];
     final lastMessageTime = lastMessage?['timestamp'];
 
-    return Container(
+    return Dismissible(
+      key: Key(roomId),
+      direction: DismissDirection.endToStart,
+      background: Container(
+        margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.red,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        alignment: Alignment.centerRight,
+        padding: const EdgeInsets.only(right: 20),
+        child: const Icon(Icons.delete, color: Colors.white),
+      ),
+      confirmDismiss: (direction) async {
+        return await showDialog<bool>(
+          context: context,
+          builder: (context) => AlertDialog(
+            backgroundColor: isDark ? const Color(0xFF1a1a2e) : Colors.white,
+            title: Text(
+              '채팅 기록 삭제',
+              style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+            ),
+            content: Text(
+              '$partnerNickname님과의 채팅 기록을 삭제하시겠습니까?',
+              style: TextStyle(color: isDark ? Colors.grey[300] : Colors.grey[700]),
+            ),
+            actions: [
+              TextButton(
+                onPressed: () => Navigator.pop(context, false),
+                child: Text('취소', style: TextStyle(color: Colors.grey[500])),
+              ),
+              ElevatedButton(
+                onPressed: () => Navigator.pop(context, true),
+                style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                child: const Text('삭제', style: TextStyle(color: Colors.white)),
+              ),
+            ],
+          ),
+        ) ?? false;
+      },
+      onDismissed: (direction) {
+        _deleteChatHistory(chat);
+      },
+      child: Container(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
       decoration: BoxDecoration(
         color: isDark 
@@ -355,6 +542,7 @@ class _ChatHistoryScreenState extends State<ChatHistoryScreen> {
           _showChatDetail(chat);
         },
       ),
+      ),
     );
   }
 
@@ -449,6 +637,16 @@ class _ChatHistoryScreenState extends State<ChatHistoryScreen> {
                   },
                   isDark: isDark,
                 ),
+                _buildActionButton(
+                  icon: Icons.delete,
+                  label: '삭제',
+                  onTap: () {
+                    Navigator.pop(context);
+                    _confirmDeleteChat(chat);
+                  },
+                  isDark: isDark,
+                  isDestructive: true,
+                ),
                 if (isActive)
                   _buildActionButton(
                     icon: Icons.chat,
@@ -478,35 +676,38 @@ class _ChatHistoryScreenState extends State<ChatHistoryScreen> {
     required VoidCallback onTap,
     required bool isDark,
     bool isHighlighted = false,
+    bool isDestructive = false,
   }) {
+    Color bgColor;
+    Color fgColor;
+    
+    if (isDestructive) {
+      bgColor = Colors.red.withOpacity(0.1);
+      fgColor = Colors.red;
+    } else if (isHighlighted) {
+      bgColor = isDark ? Colors.pinkAccent : Theme.of(context).primaryColor;
+      fgColor = Colors.white;
+    } else {
+      bgColor = isDark ? Colors.white.withOpacity(0.1) : Colors.grey[100]!;
+      fgColor = isDark ? Colors.grey[300]! : Colors.grey[700]!;
+    }
+    
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(12),
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         decoration: BoxDecoration(
-          color: isHighlighted
-              ? (isDark ? Colors.pinkAccent : Theme.of(context).primaryColor)
-              : (isDark ? Colors.white.withOpacity(0.1) : Colors.grey[100]),
+          color: bgColor,
           borderRadius: BorderRadius.circular(12),
         ),
         child: Column(
           children: [
-            Icon(
-              icon,
-              color: isHighlighted
-                  ? Colors.white
-                  : (isDark ? Colors.grey[300] : Colors.grey[700]),
-            ),
+            Icon(icon, color: fgColor),
             const SizedBox(height: 4),
             Text(
               label,
-              style: TextStyle(
-                color: isHighlighted
-                    ? Colors.white
-                    : (isDark ? Colors.grey[300] : Colors.grey[700]),
-                fontSize: 12,
-              ),
+              style: TextStyle(color: fgColor, fontSize: 12),
             ),
           ],
         ),

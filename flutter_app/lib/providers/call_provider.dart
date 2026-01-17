@@ -26,6 +26,7 @@ class CallProvider extends ChangeNotifier {
   bool _isMuted = false;
   bool _isVideoOff = false;
   bool _isSpeakerOn = true;
+  Map<String, dynamic>? _pendingOfferData; // 수신된 offer 데이터 저장
 
   CallState get callState => _callState;
   CallType get callType => _callType;
@@ -34,6 +35,8 @@ class CallProvider extends ChangeNotifier {
   bool get isSpeakerOn => _isSpeakerOn;
   RTCVideoRenderer get localRenderer => _webrtcService.localRenderer;
   RTCVideoRenderer get remoteRenderer => _webrtcService.remoteRenderer;
+  Map<String, dynamic>? get pendingOfferData => _pendingOfferData;
+  String? get currentRoomId => _currentRoomId;
 
   CallProvider() {
     _setupSocketListeners();
@@ -43,7 +46,9 @@ class CallProvider extends ChangeNotifier {
     // 통화 요청 수신
     _socketService.onCallOffer = (data) async {
       _currentRoomId = data['roomId'];
+      _pendingOfferData = data['offer']; // offer 데이터 저장
       _callState = CallState.ringing;
+      print('📞 통화 요청 수신: roomId=${data['roomId']}');
       notifyListeners();
     };
 
@@ -125,12 +130,17 @@ class CallProvider extends ChangeNotifier {
     }
   }
 
-  // 통화 수락 (수신)
-  Future<void> acceptCall(Map<String, dynamic> offerData) async {
+  // 통화 수락 (수신) - pendingOfferData 사용
+  Future<void> acceptCall([Map<String, dynamic>? offerData]) async {
+    final offer = offerData ?? _pendingOfferData;
+    if (offer == null) {
+      print('❌ 통화 수락 오류: offer 데이터 없음');
+      return;
+    }
+    
     try {
-      _callState = CallState.connected;
-      notifyListeners();
-
+      print('📞 통화 수락 중...');
+      
       // WebRTC 초기화
       await initialize();
 
@@ -153,11 +163,11 @@ class CallProvider extends ChangeNotifier {
       };
 
       // Remote Description 설정
-      final offer = RTCSessionDescription(
-        offerData['sdp'],
-        offerData['type'],
+      final rtcOffer = RTCSessionDescription(
+        offer['sdp'],
+        offer['type'],
       );
-      await _webrtcService.setRemoteDescription(offer);
+      await _webrtcService.setRemoteDescription(rtcOffer);
 
       // Answer 생성 및 전송
       final answer = await _webrtcService.createAnswer();
@@ -166,6 +176,9 @@ class CallProvider extends ChangeNotifier {
         'type': answer.type,
       });
 
+      _callState = CallState.connected;
+      _pendingOfferData = null; // offer 데이터 클리어
+      print('✅ 통화 연결 완료');
       notifyListeners();
     } catch (e) {
       print('통화 수락 오류: $e');
@@ -180,6 +193,7 @@ class CallProvider extends ChangeNotifier {
     }
     _callState = CallState.idle;
     _currentRoomId = null;
+    _pendingOfferData = null;
     notifyListeners();
   }
 
@@ -193,6 +207,7 @@ class CallProvider extends ChangeNotifier {
     
     _callState = CallState.idle;
     _currentRoomId = null;
+    _pendingOfferData = null;
     _isMuted = false;
     _isVideoOff = false;
     notifyListeners();

@@ -97,6 +97,7 @@ const setupSocketHandlers = (io) => {
             gender: result.partner.gender,
             interests: result.partner.interests,
             mbti: result.partner.mbti,
+            createdAt: result.partner.createdAt,
           },
           filterBypassed: result.filterBypassed || false,
         });
@@ -115,6 +116,7 @@ const setupSocketHandlers = (io) => {
             gender: result.currentUser.gender,
             interests: result.currentUser.interests,
             mbti: result.currentUser.mbti,
+            createdAt: result.currentUser.createdAt,
           },
           filterBypassed: result.filterBypassed || false,
         });
@@ -163,6 +165,7 @@ const setupSocketHandlers = (io) => {
                   gender: retryResult.candidateUser.gender,
                   interests: retryResult.candidateUser.interests,
                   mbti: retryResult.candidateUser.mbti,
+                  createdAt: retryResult.candidateUser.createdAt,
                 },
                 filterBypassed: true,
               });
@@ -181,6 +184,7 @@ const setupSocketHandlers = (io) => {
                   gender: currentUser.gender,
                   interests: currentUser.interests,
                   mbti: currentUser.mbti,
+                  createdAt: currentUser.createdAt,
                 },
                 filterBypassed: true,
               });
@@ -225,6 +229,7 @@ const setupSocketHandlers = (io) => {
                 gender: matchingService.TEST_BOT.gender,
                 interests: matchingService.TEST_BOT.interests,
                 mbti: matchingService.TEST_BOT.mbti || 'INFP',
+                createdAt: new Date('2024-01-01').toISOString(),
               },
             });
             
