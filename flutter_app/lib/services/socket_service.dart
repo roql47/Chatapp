@@ -6,6 +6,7 @@ typedef MessageCallback = void Function(ChatMessage message);
 typedef MatchCallback = void Function(Map<String, dynamic> data);
 typedef TypingCallback = void Function(String oderId, bool isTyping);
 typedef CallCallback = void Function(Map<String, dynamic> data);
+typedef GiftCallback = void Function(Map<String, dynamic> data);
 
 class SocketService {
   static final SocketService _instance = SocketService._internal();
@@ -29,6 +30,7 @@ class SocketService {
   CallCallback? onIceCandidate;
   VoidCallback? onCallEnded;
   VoidCallback? onReconnected; // 재연결 콜백
+  GiftCallback? onGiftReceived; // 선물 수신 콜백
 
   bool get isConnected => _socket?.connected ?? false;
   String? get userId => _userId;
@@ -142,6 +144,11 @@ class SocketService {
 
     _socket?.on('call_ended', (_) {
       onCallEnded?.call();
+    });
+    
+    // 선물 수신
+    _socket?.on('gift_received', (data) {
+      onGiftReceived?.call(data);
     });
   }
 

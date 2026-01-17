@@ -12,6 +12,7 @@ import '../config/theme.dart';
 import '../widgets/rating_dialog.dart';
 import '../widgets/gift_dialog.dart';
 import '../widgets/profile_image_viewer.dart';
+import '../widgets/gift_animation.dart';
 import 'dart:async';
 
 class ChatScreen extends StatefulWidget {
@@ -27,6 +28,16 @@ class _ChatScreenState extends State<ChatScreen> {
   final StorageService _storageService = StorageService();
   Timer? _typingTimer;
   bool _isTyping = false;
+  bool _isShowingCallDialog = false;
+
+  @override
+  void initState() {
+    super.initState();
+    // 통화 수신 감지
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _checkIncomingCall();
+    });
+  }
 
   @override
   void dispose() {
@@ -34,6 +45,20 @@ class _ChatScreenState extends State<ChatScreen> {
     _scrollController.dispose();
     _typingTimer?.cancel();
     super.dispose();
+  }
+  
+  void _checkIncomingCall() {
+    final callProvider = Provider.of<CallProvider>(context, listen: false);
+    if (callProvider.callState == CallState.ringing && !_isShowingCallDialog) {
+      _showIncomingCallDialog();
+    }
+  }
+  
+  void _showGiftAnimation(Map<String, dynamic> giftData) {
+    if (!mounted) return;
+    GiftAnimation.show(context, giftData, () {
+      // 애니메이션 완료 후
+    });
   }
 
   void _sendMessage() {
@@ -100,6 +125,77 @@ class _ChatScreenState extends State<ChatScreen> {
 
   void _startAudioCall() {
     context.push('/video-call', extra: 'audio');
+  }
+  
+  void _showIncomingCallDialog() {
+    if (_isShowingCallDialog) return;
+    _isShowingCallDialog = true;
+    
+    final chatProvider = Provider.of<ChatProvider>(context, listen: false);
+    final callProvider = Provider.of<CallProvider>(context, listen: false);
+    final partner = chatProvider.partner;
+    
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) => AlertDialog(
+        backgroundColor: AppTheme.darkSurface,
+        title: Row(
+          children: [
+            const Icon(Icons.call, color: Colors.green, size: 28),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Text(
+                '${partner?.nickname ?? "상대방"}님의 통화 요청',
+                style: const TextStyle(color: Colors.white),
+              ),
+            ),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 40,
+              backgroundColor: AppTheme.primaryColor,
+              backgroundImage: partner?.profileImage != null
+                  ? CachedNetworkImageProvider(partner!.profileImage!)
+                  : null,
+              child: partner?.profileImage == null
+                  ? const Icon(Icons.person, size: 40, color: Colors.white)
+                  : null,
+            ),
+            const SizedBox(height: 16),
+            Text(
+              callProvider.callType == CallType.video ? '영상 통화' : '음성 통화',
+              style: const TextStyle(color: Colors.white70, fontSize: 16),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              _isShowingCallDialog = false;
+              callProvider.rejectCall();
+            },
+            child: const Text('거절', style: TextStyle(color: Colors.red)),
+          ),
+          ElevatedButton.icon(
+            onPressed: () {
+              Navigator.pop(dialogContext);
+              _isShowingCallDialog = false;
+              context.push('/video-call', extra: callProvider.callType == CallType.video ? 'video' : 'audio');
+            },
+            icon: const Icon(Icons.call, color: Colors.white),
+            label: const Text('수락'),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+          ),
+        ],
+      ),
+    ).then((_) {
+      _isShowingCallDialog = false;
+    });
   }
 
   void _endChat() {
@@ -265,8 +361,24 @@ class _ChatScreenState extends State<ChatScreen> {
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
     final chatProvider = Provider.of<ChatProvider>(context);
+    final callProvider = Provider.of<CallProvider>(context);
     final user = authProvider.user!;
     final partner = chatProvider.partner;
+    
+    // 통화 수신 감지
+    if (callProvider.callState == CallState.ringing && !_isShowingCallDialog) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showIncomingCallDialog();
+      });
+    }
+    
+    // 선물 애니메이션 표시
+    if (chatProvider.lastGiftData != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        _showGiftAnimation(chatProvider.lastGiftData!);
+        chatProvider.clearGiftData();
+      });
+    }
 
     return Scaffold(
       body: Container(

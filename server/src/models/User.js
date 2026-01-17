@@ -148,6 +148,17 @@ const userSchema = new mongoose.Schema({
       type: Number,
       default: 0,
     },
+    totalPointsEarned: {
+      type: Number,
+      default: 0,
+    },
+    badge: {
+      badge: { type: String, default: 'none' },
+      name: { type: String, default: '없음' },
+      icon: { type: String, default: '' },
+      color: { type: Number, default: 0xFF9E9E9E },
+      minGifts: { type: Number, default: 0 },
+    },
   },
   
   // FCM 토큰 (Push 알림용)

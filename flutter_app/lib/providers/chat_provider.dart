@@ -36,6 +36,7 @@ class ChatProvider extends ChangeNotifier {
   MatchingFilter _filter = MatchingFilter();
   String? _matchingError;
   bool _isRestoring = false;
+  Map<String, dynamic>? _lastGiftData;
 
   MatchingState get matchingState => _matchingState;
   ChatRoom? get currentRoom => _currentRoom;
@@ -46,6 +47,12 @@ class ChatProvider extends ChangeNotifier {
   String? get matchingError => _matchingError;
   bool get isRestoring => _isRestoring;
   bool get hasActiveChat => _currentRoom != null && _matchingState == MatchingState.chatting;
+  Map<String, dynamic>? get lastGiftData => _lastGiftData;
+  
+  // 선물 애니메이션 표시 후 데이터 클리어
+  void clearGiftData() {
+    _lastGiftData = null;
+  }
 
   ChatProvider() {
     _setupSocketListeners();
@@ -160,17 +167,12 @@ class ChatProvider extends ChangeNotifier {
       
       // 상대방 정보 문자열 생성
       final partnerInfo = StringBuffer();
-      partnerInfo.writeln('🎉 ${_partner!.nickname}님과 연결되었습니다!');
-      partnerInfo.writeln('');
+      partnerInfo.writeln('${_partner!.nickname}님과 연결되었습니다!');
       
       // MBTI 표시
       if (_partner!.mbti.isNotEmpty) {
-        partnerInfo.writeln('📊 MBTI: ${_partner!.mbti}');
-      }
-      
-      // 관심사 표시
-      if (_partner!.interests.isNotEmpty) {
-        partnerInfo.writeln('💫 관심사: ${_partner!.interests.join(', ')}');
+        partnerInfo.writeln('');
+        partnerInfo.writeln('MBTI: ${_partner!.mbti}');
       }
       
       // 시스템 메시지 추가
@@ -233,6 +235,24 @@ class ChatProvider extends ChangeNotifier {
         _messages.add(ChatMessage.systemMessage(
           roomId: _currentRoom!.id,
           content: '🔌 상대방이 다시 연결되었습니다!',
+        ));
+        notifyListeners();
+      }
+    };
+    
+    // 선물 수신
+    _socketService.onGiftReceived = (data) {
+      _lastGiftData = data;
+      if (_currentRoom != null) {
+        final giftInfo = data['giftInfo'] as Map<String, dynamic>?;
+        final senderNickname = data['senderNickname'] ?? '누군가';
+        final receiverNickname = data['receiverNickname'] ?? '누군가';
+        final giftName = giftInfo?['name'] ?? '선물';
+        final rewardPoints = data['rewardPoints'] ?? 0;
+        
+        _messages.add(ChatMessage.systemMessage(
+          roomId: _currentRoom!.id,
+          content: '$senderNickname님이 $receiverNickname님에게 $giftName을(를) 선물했습니다! (+${rewardPoints}P)',
         ));
         notifyListeners();
       }

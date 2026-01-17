@@ -1,18 +1,17 @@
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
-import 'package:uuid/uuid.dart';
+import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
+import 'dart:convert';
+import '../config/app_config.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class StorageService {
   static final StorageService _instance = StorageService._internal();
   factory StorageService() => _instance;
   StorageService._internal();
 
-  // Firebase Storage는 나중에 설정 후 사용
-  // final FirebaseStorage _storage = FirebaseStorage.instance;
   final ImagePicker _picker = ImagePicker();
-  final Uuid _uuid = const Uuid();
-  
-  bool _firebaseEnabled = false;
 
   // 갤러리에서 이미지 선택
   Future<File?> pickImageFromGallery() async {
@@ -54,50 +53,115 @@ class StorageService {
     }
   }
 
-  // 이미지 업로드 (Firebase 설정 전에는 로컬 경로 반환)
+  // 토큰 가져오기
+  Future<String?> _getToken() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString('auth_token');
+  }
+
+  // 채팅 이미지 업로드 (서버로)
   Future<String?> uploadImage(File file, {String? folder}) async {
     try {
-      if (!_firebaseEnabled) {
-        // Firebase 미설정시 로컬 파일 경로 반환
-        print('⚠️ Firebase Storage 미설정 - 로컬 경로 사용');
-        return file.path;
+      final token = await _getToken();
+      if (token == null) {
+        print('⚠️ 토큰 없음 - 업로드 불가');
+        return null;
       }
+
+      final uri = Uri.parse('${AppConfig.serverUrl}/api/upload/chat');
+      final request = http.MultipartRequest('POST', uri);
       
-      // TODO: Firebase Storage 설정 후 아래 코드 활성화
-      // final String fileName = '${_uuid.v4()}.jpg';
-      // final String path = folder != null ? '$folder/$fileName' : 'chat_images/$fileName';
-      // final Reference ref = _storage.ref().child(path);
-      // final UploadTask uploadTask = ref.putFile(file, SettableMetadata(contentType: 'image/jpeg'));
-      // final TaskSnapshot snapshot = await uploadTask;
-      // return await snapshot.ref.getDownloadURL();
+      request.headers['Authorization'] = 'Bearer $token';
       
-      return file.path;
+      // 파일 확장자 확인
+      final extension = file.path.split('.').last.toLowerCase();
+      final mimeType = _getMimeType(extension);
+      
+      request.files.add(await http.MultipartFile.fromPath(
+        'image',
+        file.path,
+        contentType: MediaType('image', mimeType),
+      ));
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final imageUrl = '${AppConfig.serverUrl}${data['imageUrl']}';
+        print('✅ 이미지 업로드 성공: $imageUrl');
+        return imageUrl;
+      } else {
+        print('❌ 이미지 업로드 실패: ${response.body}');
+        return null;
+      }
     } catch (e) {
       print('이미지 업로드 오류: $e');
       return null;
     }
   }
 
-  // 이미지 삭제
-  Future<bool> deleteImage(String imageUrl) async {
+  // 프로필 이미지 업로드
+  Future<String?> uploadProfileImage(File file, String userId) async {
     try {
-      if (!_firebaseEnabled) {
-        print('⚠️ Firebase Storage 미설정');
-        return true;
+      final token = await _getToken();
+      if (token == null) {
+        print('⚠️ 토큰 없음 - 업로드 불가');
+        return null;
       }
+
+      final uri = Uri.parse('${AppConfig.serverUrl}/api/upload/profile');
+      final request = http.MultipartRequest('POST', uri);
       
-      // TODO: Firebase Storage 설정 후 활성화
-      // final Reference ref = _storage.refFromURL(imageUrl);
-      // await ref.delete();
-      return true;
+      request.headers['Authorization'] = 'Bearer $token';
+      
+      final extension = file.path.split('.').last.toLowerCase();
+      final mimeType = _getMimeType(extension);
+      
+      request.files.add(await http.MultipartFile.fromPath(
+        'image',
+        file.path,
+        contentType: MediaType('image', mimeType),
+      ));
+
+      final streamedResponse = await request.send();
+      final response = await http.Response.fromStream(streamedResponse);
+
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final imageUrl = '${AppConfig.serverUrl}${data['imageUrl']}';
+        print('✅ 프로필 이미지 업로드 성공: $imageUrl');
+        return imageUrl;
+      } else {
+        print('❌ 프로필 이미지 업로드 실패: ${response.body}');
+        return null;
+      }
     } catch (e) {
-      print('이미지 삭제 오류: $e');
-      return false;
+      print('프로필 이미지 업로드 오류: $e');
+      return null;
     }
   }
 
-  // 프로필 이미지 업로드
-  Future<String?> uploadProfileImage(File file, String userId) async {
-    return uploadImage(file, folder: 'profile_images/$userId');
+  // 이미지 삭제
+  Future<bool> deleteImage(String imageUrl) async {
+    // 서버 측에서 자동 관리하므로 클라이언트에서는 true 반환
+    return true;
+  }
+  
+  // MIME 타입 결정
+  String _getMimeType(String extension) {
+    switch (extension) {
+      case 'jpg':
+      case 'jpeg':
+        return 'jpeg';
+      case 'png':
+        return 'png';
+      case 'gif':
+        return 'gif';
+      case 'webp':
+        return 'webp';
+      default:
+        return 'jpeg';
+    }
   }
 }

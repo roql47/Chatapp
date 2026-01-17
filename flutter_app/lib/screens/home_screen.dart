@@ -493,6 +493,15 @@ class _HomeScreenState extends State<HomeScreen>
                     },
                   ),
                   _buildDrawerItem(
+                    icon: Icons.emoji_events,
+                    title: '선물 랭킹',
+                    isDark: isDark,
+                    onTap: () {
+                      Navigator.pop(context);
+                      context.push('/gift-ranking');
+                    },
+                  ),
+                  _buildDrawerItem(
                     icon: Icons.history,
                     title: '채팅 기록',
                     isDark: isDark,

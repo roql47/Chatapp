@@ -224,6 +224,7 @@ const setupSocketHandlers = (io) => {
                 profileImage: matchingService.TEST_BOT.profileImage,
                 gender: matchingService.TEST_BOT.gender,
                 interests: matchingService.TEST_BOT.interests,
+                mbti: matchingService.TEST_BOT.mbti || 'INFP',
               },
             });
             

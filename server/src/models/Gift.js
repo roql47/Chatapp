@@ -1,13 +1,13 @@
 const mongoose = require('mongoose');
 
-// 선물 종류 정의
+// 선물 종류 정의 (icon: Material Design Icon 이름)
 const GIFT_TYPES = {
-  heart: { name: '하트', price: 10, emoji: '❤️' },
-  rose: { name: '장미', price: 30, emoji: '🌹' },
-  star: { name: '별', price: 50, emoji: '⭐' },
-  diamond: { name: '다이아몬드', price: 100, emoji: '💎' },
-  crown: { name: '왕관', price: 200, emoji: '👑' },
-  rocket: { name: '로켓', price: 500, emoji: '🚀' },
+  heart: { name: '하트', price: 10, icon: 'favorite', color: 0xFFE91E63 },
+  rose: { name: '장미', price: 30, icon: 'local_florist', color: 0xFFF44336 },
+  star: { name: '별', price: 50, icon: 'star', color: 0xFFFFEB3B },
+  diamond: { name: '다이아몬드', price: 100, icon: 'diamond', color: 0xFF00BCD4 },
+  crown: { name: '왕관', price: 200, icon: 'workspace_premium', color: 0xFFFFD700 },
+  rocket: { name: '로켓', price: 500, icon: 'rocket_launch', color: 0xFFFF5722 },
 };
 
 const giftSchema = new mongoose.Schema({

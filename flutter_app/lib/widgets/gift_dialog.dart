@@ -25,12 +25,12 @@ class _GiftDialogState extends State<GiftDialog> {
   bool _isSending = false;
 
   final List<Map<String, dynamic>> _gifts = [
-    {'id': 'heart', 'name': '하트', 'price': 10, 'emoji': '❤️'},
-    {'id': 'rose', 'name': '장미', 'price': 30, 'emoji': '🌹'},
-    {'id': 'star', 'name': '별', 'price': 50, 'emoji': '⭐'},
-    {'id': 'diamond', 'name': '다이아몬드', 'price': 100, 'emoji': '💎'},
-    {'id': 'crown', 'name': '왕관', 'price': 200, 'emoji': '👑'},
-    {'id': 'rocket', 'name': '로켓', 'price': 500, 'emoji': '🚀'},
+    {'id': 'heart', 'name': '하트', 'price': 10, 'icon': Icons.favorite, 'color': Colors.pink},
+    {'id': 'rose', 'name': '장미', 'price': 30, 'icon': Icons.local_florist, 'color': Colors.red},
+    {'id': 'star', 'name': '별', 'price': 50, 'icon': Icons.star, 'color': Colors.amber},
+    {'id': 'diamond', 'name': '다이아몬드', 'price': 100, 'icon': Icons.diamond, 'color': Colors.cyan},
+    {'id': 'crown', 'name': '왕관', 'price': 200, 'icon': Icons.workspace_premium, 'color': Colors.orange},
+    {'id': 'rocket', 'name': '로켓', 'price': 500, 'icon': Icons.rocket_launch, 'color': Colors.deepOrange},
   ];
 
   Future<void> _sendGift() async {
@@ -55,7 +55,7 @@ class _GiftDialogState extends State<GiftDialog> {
     setState(() => _isSending = true);
 
     // 메시지 미리 준비
-    final successMessage = '${widget.partnerName}님에게 ${gift['emoji']} ${gift['name']}을(를) 선물했어요!';
+    final successMessage = '${widget.partnerName}님에게 ${gift['name']}을(를) 선물했어요!';
 
     try {
       final apiService = ApiService();
@@ -179,12 +179,10 @@ class _GiftDialogState extends State<GiftDialog> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Text(
-                          gift['emoji'],
-                          style: TextStyle(
-                            fontSize: 32,
-                            color: canAfford ? null : Colors.grey,
-                          ),
+                        Icon(
+                          gift['icon'] as IconData,
+                          size: 32,
+                          color: canAfford ? gift['color'] as Color : Colors.grey,
                         ),
                         const SizedBox(height: 4),
                         Text(

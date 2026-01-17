@@ -1,5 +1,6 @@
 const express = require('express');
 const http = require('http');
+const path = require('path');
 const { Server } = require('socket.io');
 const cors = require('cors');
 const connectDB = require('./config/database');
@@ -14,6 +15,7 @@ const ratingRoutes = require('./routes/ratingRoutes');
 const giftRoutes = require('./routes/giftRoutes');
 const vipRoutes = require('./routes/vipRoutes');
 const chatRoutes = require('./routes/chatRoutes');
+const uploadRoutes = require('./routes/uploadRoutes');
 
 const app = express();
 const server = http.createServer(app);
@@ -30,6 +32,9 @@ const io = new Server(server, {
 app.use(cors());
 app.use(express.json());
 
+// 정적 파일 서빙 (업로드된 이미지)
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
 // MongoDB 연결
 connectDB();
 
@@ -41,6 +46,7 @@ app.use('/api/ratings', ratingRoutes);
 app.use('/api/gifts', giftRoutes);
 app.use('/api/vip', vipRoutes);
 app.use('/api/chat', chatRoutes);
+app.use('/api/upload', uploadRoutes);
 
 // 상태 체크 엔드포인트
 app.get('/api/health', (req, res) => {
@@ -53,6 +59,9 @@ app.get('/api/health', (req, res) => {
 
 // Socket.io 핸들러 설정
 setupSocketHandlers(io);
+
+// io 객체를 전역에서 접근 가능하도록 설정
+app.set('io', io);
 
 // 에러 핸들링
 app.use((err, req, res, next) => {

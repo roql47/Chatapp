@@ -16,6 +16,7 @@ import '../screens/friends_screen.dart';
 import '../screens/vip_shop_screen.dart';
 import '../screens/chat_history_screen.dart';
 import '../screens/blocked_users_screen.dart';
+import '../screens/gift_ranking_screen.dart';
 
 class AppRouter {
   static final GoRouter router = GoRouter(
@@ -105,6 +106,11 @@ class AppRouter {
         path: '/blocked-users',
         name: 'blocked-users',
         builder: (context, state) => const BlockedUsersScreen(),
+      ),
+      GoRoute(
+        path: '/gift-ranking',
+        name: 'gift-ranking',
+        builder: (context, state) => const GiftRankingScreen(),
       ),
     ],
     redirect: (context, state) {
