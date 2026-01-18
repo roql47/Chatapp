@@ -67,16 +67,25 @@ const globalLimiter = rateLimit({
 });
 app.use('/api', globalLimiter);
 
-// 로그인/인증 Rate Limiter - 더 엄격 (5분당 10요청)
+// 로그인 Rate Limiter (5분당 20요청)
 const authLimiter = rateLimit({
   windowMs: 5 * 60 * 1000, // 5분
-  max: 10,
+  max: 20,
   message: { message: '로그인 시도가 너무 많습니다. 5분 후 다시 시도해주세요.' },
   standardHeaders: true,
   legacyHeaders: false,
 });
 app.use('/api/auth/kakao', authLimiter);
-app.use('/api/auth/adult-verification', authLimiter);
+
+// 성인인증 Rate Limiter (1분당 300요청)
+const adultVerificationLimiter = rateLimit({
+  windowMs: 60 * 1000, // 1분
+  max: 300,
+  message: { message: '인증 요청이 너무 많습니다. 1분 후 다시 시도해주세요.' },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use('/api/auth/adult-verification', adultVerificationLimiter);
 
 // 업로드 Rate Limiter - 1분당 10요청
 const uploadLimiter = rateLimit({

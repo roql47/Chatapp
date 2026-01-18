@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase/in_app_purchase.dart';
 import 'package:in_app_purchase_android/in_app_purchase_android.dart';
-import 'package:in_app_purchase_storekit/in_app_purchase_storekit.dart';
 
 // 포인트 상품 정의
 class PointProduct {
@@ -92,13 +91,6 @@ class PurchaseService {
     if (!_isAvailable) {
       print('⚠️ 인앱결제 사용 불가');
       return;
-    }
-
-    // 플랫폼별 설정
-    if (Platform.isIOS) {
-      final iosPlatformAddition = _inAppPurchase
-          .getPlatformAddition<InAppPurchaseStoreKitPlatformAddition>();
-      await iosPlatformAddition.setDelegate(ExamplePaymentQueueDelegate());
     }
 
     // 구매 스트림 구독
@@ -248,19 +240,5 @@ class PurchaseService {
     } catch (e) {
       return null;
     }
-  }
-}
-
-// iOS 결제 대리자
-class ExamplePaymentQueueDelegate implements SKPaymentQueueDelegateWrapper {
-  @override
-  bool shouldContinueTransaction(
-      SKPaymentTransactionWrapper transaction, SKStorefrontWrapper storefront) {
-    return true;
-  }
-
-  @override
-  bool shouldShowPriceConsent() {
-    return false;
   }
 }
