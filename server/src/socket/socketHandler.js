@@ -16,6 +16,46 @@ const RECONNECT_GRACE_PERIOD = 30 * 1000;
 // 메시지 글자수 제한
 const MAX_MESSAGE_LENGTH = 1000;
 
+// ===== 메시지 스팸 방지 =====
+const messageRateLimits = new Map(); // userId -> { count, lastReset }
+const MESSAGE_RATE_LIMIT = 30; // 10초당 최대 메시지 수
+const MESSAGE_RATE_WINDOW = 10 * 1000; // 10초
+
+// 메시지 rate limit 체크
+const checkMessageRateLimit = (userId) => {
+  const now = Date.now();
+  const userLimit = messageRateLimits.get(userId);
+  
+  if (!userLimit || (now - userLimit.lastReset) > MESSAGE_RATE_WINDOW) {
+    // 새로운 윈도우 시작
+    messageRateLimits.set(userId, { count: 1, lastReset: now });
+    return true;
+  }
+  
+  if (userLimit.count >= MESSAGE_RATE_LIMIT) {
+    return false; // 제한 초과
+  }
+  
+  userLimit.count++;
+  return true;
+};
+
+// 중복 메시지 방지
+const lastMessages = new Map(); // userId -> { content, timestamp }
+const DUPLICATE_MESSAGE_WINDOW = 2000; // 2초 내 동일 메시지 차단
+
+const isDuplicateMessage = (userId, content) => {
+  const now = Date.now();
+  const lastMsg = lastMessages.get(userId);
+  
+  if (lastMsg && lastMsg.content === content && (now - lastMsg.timestamp) < DUPLICATE_MESSAGE_WINDOW) {
+    return true;
+  }
+  
+  lastMessages.set(userId, { content, timestamp: now });
+  return false;
+};
+
 const setupSocketHandlers = (io) => {
   // TEST_MODE용: "테스트 봇" 대화방 추적 (roomId -> true)
   const testBotRooms = new Set();
@@ -339,17 +379,35 @@ const setupSocketHandlers = (io) => {
     // 메시지 전송
     socket.on('send_message', async (data) => {
       try {
-        // 글자수 검증
+        // 1. Rate Limit 체크 (스팸 방지)
+        if (!checkMessageRateLimit(userId)) {
+          socket.emit('message_error', {
+            error: '메시지를 너무 빠르게 보내고 있습니다. 잠시 후 다시 시도해주세요.',
+          });
+          console.log(`⚠️ 메시지 rate limit 초과: ${userId}`);
+          return;
+        }
+
+        // 2. 중복 메시지 체크
+        if (data.type !== 'image' && isDuplicateMessage(userId, data.content)) {
+          socket.emit('message_error', {
+            error: '동일한 메시지를 연속으로 보낼 수 없습니다.',
+          });
+          console.log(`⚠️ 중복 메시지 차단: ${userId}`);
+          return;
+        }
+
+        // 3. 글자수 검증
         if (data.type !== 'image' && data.content && data.content.length > MAX_MESSAGE_LENGTH) {
           socket.emit('message_error', {
             error: `메시지는 ${MAX_MESSAGE_LENGTH}자를 초과할 수 없습니다.`,
             originalContent: data.content.substring(0, 50) + '...',
           });
-          console.log(`메시지 글자수 초과: ${userId} (${data.content.length}자)`);
+          console.log(`⚠️ 메시지 글자수 초과: ${userId} (${data.content.length}자)`);
           return;
         }
 
-        // 빈 메시지 검증
+        // 4. 빈 메시지 검증
         if (!data.content || data.content.trim().length === 0) {
           socket.emit('message_error', {
             error: '빈 메시지는 전송할 수 없습니다.',
