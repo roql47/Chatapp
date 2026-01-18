@@ -13,6 +13,9 @@ const disconnectTimers = new Map(); // userId -> setTimeout ID (재연결 대기
 // 재연결 대기 시간 (30초)
 const RECONNECT_GRACE_PERIOD = 30 * 1000;
 
+// 메시지 글자수 제한
+const MAX_MESSAGE_LENGTH = 1000;
+
 const setupSocketHandlers = (io) => {
   // TEST_MODE용: "테스트 봇" 대화방 추적 (roomId -> true)
   const testBotRooms = new Set();
@@ -336,12 +339,30 @@ const setupSocketHandlers = (io) => {
     // 메시지 전송
     socket.on('send_message', async (data) => {
       try {
+        // 글자수 검증
+        if (data.type !== 'image' && data.content && data.content.length > MAX_MESSAGE_LENGTH) {
+          socket.emit('message_error', {
+            error: `메시지는 ${MAX_MESSAGE_LENGTH}자를 초과할 수 없습니다.`,
+            originalContent: data.content.substring(0, 50) + '...',
+          });
+          console.log(`메시지 글자수 초과: ${userId} (${data.content.length}자)`);
+          return;
+        }
+
+        // 빈 메시지 검증
+        if (!data.content || data.content.trim().length === 0) {
+          socket.emit('message_error', {
+            error: '빈 메시지는 전송할 수 없습니다.',
+          });
+          return;
+        }
+
         // ✅ 항상 메시지 저장 (테스트 계정/테스트봇도 기록 남김)
         const message = await Message.create({
           roomId: data.roomId,
           senderId: data.senderId,
           senderNickname: data.senderNickname,
-          content: data.content,
+          content: data.content.substring(0, MAX_MESSAGE_LENGTH), // 추가 안전장치
           type: data.type || 'text',
         });
 

@@ -18,6 +18,7 @@ const messageSchema = new mongoose.Schema({
   content: {
     type: String,
     required: true,
+    maxlength: 1000, // 트래픽 예방을 위한 글자수 제한
   },
   type: {
     type: String,

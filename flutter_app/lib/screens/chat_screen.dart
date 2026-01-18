@@ -801,12 +801,15 @@ class _ChatScreenState extends State<ChatScreen> {
               controller: _messageController,
               onChanged: _onTextChanged,
               style: const TextStyle(color: Colors.white),
+              maxLength: 1000,
+              maxLines: null,
               decoration: InputDecoration(
                 hintText: '메시지를 입력하세요...',
                 hintStyle: TextStyle(color: Colors.white.withOpacity(0.3)),
                 filled: true,
                 fillColor: AppTheme.darkCard,
                 contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                counterText: '', // 글자수 카운터 숨기기
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(24),
                   borderSide: BorderSide.none,

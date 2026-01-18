@@ -487,10 +487,12 @@ class _DMChatScreenState extends State<DMChatScreen> {
                 controller: _messageController,
                 style: const TextStyle(color: Colors.white),
                 maxLines: null,
+                maxLength: 1000,
                 decoration: const InputDecoration(
                   hintText: '메시지를 입력하세요...',
                   hintStyle: TextStyle(color: Colors.white38),
                   border: InputBorder.none,
+                  counterText: '', // 글자수 카운터 숨기기
                 ),
                 onChanged: (text) {
                   _socketService.sendTypingStatus(widget.roomId, text.isNotEmpty);
