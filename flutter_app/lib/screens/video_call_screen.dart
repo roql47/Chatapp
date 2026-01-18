@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_webrtc/flutter_webrtc.dart';
+import 'package:no_screenshot/no_screenshot.dart';
 import '../providers/call_provider.dart';
 import '../providers/chat_provider.dart';
 import '../config/theme.dart';
@@ -21,7 +22,28 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
   @override
   void initState() {
     super.initState();
+    _enableSecureMode();
     _initializeCall();
+  }
+  
+  final _noScreenshot = NoScreenshot.instance;
+  
+  // 스크린샷 방지 활성화
+  Future<void> _enableSecureMode() async {
+    try {
+      await _noScreenshot.screenshotOff();
+    } catch (e) {
+      print('스크린샷 방지 활성화 오류: $e');
+    }
+  }
+  
+  // 스크린샷 방지 비활성화
+  Future<void> _disableSecureMode() async {
+    try {
+      await _noScreenshot.screenshotOn();
+    } catch (e) {
+      print('스크린샷 방지 비활성화 오류: $e');
+    }
   }
 
   Future<void> _initializeCall() async {
@@ -45,7 +67,14 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
     }
   }
 
+  @override
+  void dispose() {
+    _disableSecureMode();
+    super.dispose();
+  }
+
   void _endCall() {
+    _disableSecureMode();
     final callProvider = Provider.of<CallProvider>(context, listen: false);
     callProvider.endCall();
     context.pop();

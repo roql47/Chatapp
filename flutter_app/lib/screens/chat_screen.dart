@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:no_screenshot/no_screenshot.dart';
 import '../providers/auth_provider.dart';
 import '../providers/chat_provider.dart';
 import '../providers/call_provider.dart';
 import '../models/chat_message.dart';
 import '../services/storage_service.dart';
 import '../services/api_service.dart';
+import '../services/location_service.dart';
 import '../config/theme.dart';
 import '../widgets/rating_dialog.dart';
 import '../widgets/gift_dialog.dart';
@@ -26,6 +29,7 @@ class _ChatScreenState extends State<ChatScreen> {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final StorageService _storageService = StorageService();
+  final LocationService _locationService = LocationService();
   Timer? _typingTimer;
   bool _isTyping = false;
   bool _isShowingCallDialog = false;
@@ -33,6 +37,8 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    // 스크린샷 방지 활성화
+    _enableSecureMode();
     // 통화 수신 감지
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkIncomingCall();
@@ -41,10 +47,32 @@ class _ChatScreenState extends State<ChatScreen> {
 
   @override
   void dispose() {
+    // 스크린샷 방지 비활성화
+    _disableSecureMode();
     _messageController.dispose();
     _scrollController.dispose();
     _typingTimer?.cancel();
     super.dispose();
+  }
+  
+  final _noScreenshot = NoScreenshot.instance;
+  
+  // 스크린샷 방지 활성화
+  Future<void> _enableSecureMode() async {
+    try {
+      await _noScreenshot.screenshotOff();
+    } catch (e) {
+      print('스크린샷 방지 활성화 오류: $e');
+    }
+  }
+  
+  // 스크린샷 방지 비활성화
+  Future<void> _disableSecureMode() async {
+    try {
+      await _noScreenshot.screenshotOn();
+    } catch (e) {
+      print('스크린샷 방지 비활성화 오류: $e');
+    }
   }
   
   void _checkIncomingCall() {
@@ -449,6 +477,12 @@ class _ChatScreenState extends State<ChatScreen> {
     final chatProvider = Provider.of<ChatProvider>(context, listen: false);
     final partner = chatProvider.partner;
     if (partner == null) return;
+    
+    // 거리 계산
+    final distance = _locationService.getDistanceFrom(
+      partner.latitude,
+      partner.longitude,
+    );
 
     ProfileImageViewer.show(
       context,
@@ -459,6 +493,24 @@ class _ChatScreenState extends State<ChatScreen> {
       interests: partner.interests,
       gender: partner.gender,
       createdAt: partner.createdAt,
+      distance: distance,
+    );
+  }
+  
+  // 이미지 확대 뷰어
+  void _showImageViewer(String imageUrl) {
+    Navigator.of(context).push(
+      PageRouteBuilder(
+        opaque: false,
+        barrierColor: Colors.black87,
+        barrierDismissible: true,
+        pageBuilder: (context, animation, secondaryAnimation) {
+          return _ImageViewerScreen(imageUrl: imageUrl);
+        },
+        transitionsBuilder: (context, animation, secondaryAnimation, child) {
+          return FadeTransition(opacity: animation, child: child);
+        },
+      ),
     );
   }
 
@@ -657,25 +709,28 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               ),
               child: message.type == MessageType.image
-                  ? ClipRRect(
-                      borderRadius: BorderRadius.circular(12),
-                      child: CachedNetworkImage(
-                        imageUrl: message.content,
-                        width: 200,
-                        fit: BoxFit.cover,
-                        placeholder: (context, url) => Container(
+                  ? GestureDetector(
+                      onTap: () => _showImageViewer(message.content),
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(12),
+                        child: CachedNetworkImage(
+                          imageUrl: message.content,
                           width: 200,
-                          height: 150,
-                          color: AppTheme.darkCard,
-                          child: const Center(
-                            child: CircularProgressIndicator(),
+                          fit: BoxFit.cover,
+                          placeholder: (context, url) => Container(
+                            width: 200,
+                            height: 150,
+                            color: AppTheme.darkCard,
+                            child: const Center(
+                              child: CircularProgressIndicator(),
+                            ),
                           ),
-                        ),
-                        errorWidget: (context, url, error) => Container(
-                          width: 200,
-                          height: 150,
-                          color: AppTheme.darkCard,
-                          child: const Icon(Icons.error, color: Colors.white54),
+                          errorWidget: (context, url, error) => Container(
+                            width: 200,
+                            height: 150,
+                            color: AppTheme.darkCard,
+                            child: const Icon(Icons.error, color: Colors.white54),
+                          ),
                         ),
                       ),
                     )
@@ -895,6 +950,91 @@ class _ChatScreenState extends State<ChatScreen> {
             child: const Text('차단'),
           ),
         ],
+      ),
+    );
+  }
+}
+
+// 이미지 확대 뷰어 화면
+class _ImageViewerScreen extends StatefulWidget {
+  final String imageUrl;
+  
+  const _ImageViewerScreen({required this.imageUrl});
+
+  @override
+  State<_ImageViewerScreen> createState() => _ImageViewerScreenState();
+}
+
+class _ImageViewerScreenState extends State<_ImageViewerScreen> {
+  final TransformationController _transformationController = TransformationController();
+  final _noScreenshot = NoScreenshot.instance;
+  
+  @override
+  void initState() {
+    super.initState();
+    // 이미지 뷰어에서도 스크린샷 방지
+    _enableSecureMode();
+  }
+  
+  @override
+  void dispose() {
+    _transformationController.dispose();
+    super.dispose();
+  }
+  
+  Future<void> _enableSecureMode() async {
+    try {
+      await _noScreenshot.screenshotOff();
+    } catch (e) {
+      print('스크린샷 방지 오류: $e');
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black87,
+      appBar: AppBar(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.zoom_out_map, color: Colors.white),
+            onPressed: () {
+              _transformationController.value = Matrix4.identity();
+            },
+            tooltip: '원래 크기로',
+          ),
+        ],
+      ),
+      body: Center(
+        child: InteractiveViewer(
+          transformationController: _transformationController,
+          minScale: 0.5,
+          maxScale: 4.0,
+          child: CachedNetworkImage(
+            imageUrl: widget.imageUrl,
+            fit: BoxFit.contain,
+            placeholder: (context, url) => const Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            ),
+            errorWidget: (context, url, error) => const Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error, color: Colors.white54, size: 48),
+                SizedBox(height: 16),
+                Text(
+                  '이미지를 불러올 수 없습니다',
+                  style: TextStyle(color: Colors.white54),
+                ),
+              ],
+            ),
+          ),
+        ),
       ),
     );
   }

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:no_screenshot/no_screenshot.dart';
 import '../config/theme.dart';
 import '../services/api_service.dart';
 import '../services/socket_service.dart';
@@ -37,6 +38,7 @@ class _DMChatScreenState extends State<DMChatScreen> {
   @override
   void initState() {
     super.initState();
+    _enableSecureMode();
     _loadMessages();
     _setupSocketListeners();
     _socketService.joinRoom(widget.roomId);
@@ -44,10 +46,31 @@ class _DMChatScreenState extends State<DMChatScreen> {
 
   @override
   void dispose() {
+    _disableSecureMode();
     _messageController.dispose();
     _scrollController.dispose();
     _socketService.leaveRoom(widget.roomId);
     super.dispose();
+  }
+  
+  final _noScreenshot = NoScreenshot.instance;
+  
+  // 스크린샷 방지 활성화
+  Future<void> _enableSecureMode() async {
+    try {
+      await _noScreenshot.screenshotOff();
+    } catch (e) {
+      print('스크린샷 방지 활성화 오류: $e');
+    }
+  }
+  
+  // 스크린샷 방지 비활성화
+  Future<void> _disableSecureMode() async {
+    try {
+      await _noScreenshot.screenshotOn();
+    } catch (e) {
+      print('스크린샷 방지 비활성화 오류: $e');
+    }
   }
 
   void _setupSocketListeners() {

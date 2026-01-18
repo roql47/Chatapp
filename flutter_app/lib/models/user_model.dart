@@ -11,6 +11,9 @@ class UserModel {
   final DateTime createdAt;
   final bool isOnline;
   final int points; // 포인트
+  final double? latitude; // 위치 - 위도
+  final double? longitude; // 위치 - 경도
+  final bool isAdultVerified; // 성인인증 여부
 
   UserModel({
     required this.id,
@@ -24,9 +27,25 @@ class UserModel {
     required this.createdAt,
     this.isOnline = false,
     this.points = 100, // 기본 100 포인트
+    this.latitude,
+    this.longitude,
+    this.isAdultVerified = false,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
+    // 위치 정보 파싱
+    double? lat, lng;
+    if (json['location'] != null) {
+      lat = (json['location']['latitude'] as num?)?.toDouble();
+      lng = (json['location']['longitude'] as num?)?.toDouble();
+    }
+    
+    // 성인인증 정보 파싱
+    bool isAdultVerified = false;
+    if (json['adultVerification'] != null) {
+      isAdultVerified = json['adultVerification']['isVerified'] ?? false;
+    }
+    
     return UserModel(
       id: json['_id'] ?? json['id'] ?? '',
       kakaoId: json['kakaoId'] ?? '',
@@ -41,6 +60,9 @@ class UserModel {
           : DateTime.now(),
       isOnline: json['isOnline'] ?? false,
       points: json['points'] ?? 100,
+      latitude: lat,
+      longitude: lng,
+      isAdultVerified: isAdultVerified,
     );
   }
 
@@ -57,6 +79,10 @@ class UserModel {
       'createdAt': createdAt.toIso8601String(),
       'isOnline': isOnline,
       'points': points,
+      'location': (latitude != null && longitude != null) 
+          ? {'latitude': latitude, 'longitude': longitude} 
+          : null,
+      'adultVerification': {'isVerified': isAdultVerified},
     };
   }
 
@@ -72,6 +98,9 @@ class UserModel {
     DateTime? createdAt,
     bool? isOnline,
     int? points,
+    double? latitude,
+    double? longitude,
+    bool? isAdultVerified,
   }) {
     return UserModel(
       id: id ?? this.id,
@@ -85,6 +114,9 @@ class UserModel {
       createdAt: createdAt ?? this.createdAt,
       isOnline: isOnline ?? this.isOnline,
       points: points ?? this.points,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
+      isAdultVerified: isAdultVerified ?? this.isAdultVerified,
     );
   }
 }

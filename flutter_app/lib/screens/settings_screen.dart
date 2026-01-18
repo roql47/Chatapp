@@ -7,6 +7,7 @@ import '../providers/theme_provider.dart';
 import '../models/matching_filter.dart';
 import '../config/theme.dart';
 import '../services/api_service.dart';
+import '../services/location_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -17,6 +18,80 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   bool _notificationEnabled = true;
+  bool _locationEnabled = false;
+  bool _isLoadingLocation = false;
+  final LocationService _locationService = LocationService();
+  
+  @override
+  void initState() {
+    super.initState();
+    _loadLocationSettings();
+  }
+  
+  Future<void> _loadLocationSettings() async {
+    await _locationService.loadSettings();
+    if (mounted) {
+      setState(() {
+        _locationEnabled = _locationService.isLocationEnabled;
+      });
+    }
+  }
+  
+  Future<void> _toggleLocationSharing(bool value) async {
+    setState(() => _isLoadingLocation = true);
+    
+    try {
+      final success = await _locationService.toggleLocationSharing(value);
+      
+      if (success) {
+        setState(() => _locationEnabled = value);
+        
+        // 서버에 위치 정보 업데이트 (실패해도 로컬은 정상 작동)
+        try {
+          if (value && _locationService.latitude != null) {
+            await ApiService().put('/api/auth/location', {
+              'latitude': _locationService.latitude,
+              'longitude': _locationService.longitude,
+              'enabled': true,
+            });
+          } else {
+            await ApiService().put('/api/auth/location/toggle', {
+              'enabled': false,
+            });
+          }
+        } catch (serverError) {
+          // 서버 오류는 무시 (로컬에서는 정상 작동)
+          print('서버 위치 업데이트 실패 (무시됨): $serverError');
+        }
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(value 
+                ? '위치 공유가 활성화되었습니다. 매칭 시 거리가 표시됩니다.' 
+                : '위치 공유가 비활성화되었습니다.'),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('위치 권한이 필요합니다. 설정에서 위치 권한을 허용해주세요.'),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('위치 설정 변경 실패: $e')),
+        );
+      }
+    }
+    
+    setState(() => _isLoadingLocation = false);
+  }
   
   @override
   Widget build(BuildContext context) {
@@ -128,6 +203,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
                           );
                         },
                       ),
+                      _buildSettingItem(
+                        icon: Icons.location_on,
+                        title: '위치 공유',
+                        isDark: isDark,
+                        trailing: _isLoadingLocation
+                            ? const SizedBox(
+                                width: 24,
+                                height: 24,
+                                child: CircularProgressIndicator(strokeWidth: 2),
+                              )
+                            : Switch(
+                                value: _locationEnabled,
+                                onChanged: _toggleLocationSharing,
+                                activeColor: AppTheme.primaryColor,
+                              ),
+                      ),
+                      if (_locationEnabled)
+                        Padding(
+                          padding: const EdgeInsets.only(left: 16, bottom: 8),
+                          child: Text(
+                            '매칭 시 상대방과의 대략적인 거리가 표시됩니다.\n정확한 위치는 공유되지 않습니다.',
+                            style: TextStyle(
+                              color: isDark ? Colors.white38 : Colors.black38,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ),
                       const SizedBox(height: 24),
                       // 정보 섹션
                       _buildSectionTitle('정보', isDark),

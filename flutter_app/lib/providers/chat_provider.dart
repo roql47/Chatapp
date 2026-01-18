@@ -8,6 +8,7 @@ import '../models/user_model.dart';
 import '../services/socket_service.dart';
 import '../services/storage_service.dart';
 import '../services/auth_service.dart';
+import '../services/location_service.dart';
 import 'dart:io';
 
 // 성별 필터 매칭 비용
@@ -27,6 +28,7 @@ class ChatProvider extends ChangeNotifier {
   final SocketService _socketService = SocketService();
   final StorageService _storageService = StorageService();
   final AuthService _authService = AuthService();
+  final LocationService _locationService = LocationService();
 
   MatchingState _matchingState = MatchingState.idle;
   ChatRoom? _currentRoom;
@@ -168,6 +170,16 @@ class ChatProvider extends ChangeNotifier {
       // 상대방 정보 문자열 생성
       final partnerInfo = StringBuffer();
       partnerInfo.writeln('${_partner!.nickname}님과 연결되었습니다!');
+      
+      // 거리 표시 (위치 공유가 활성화된 경우)
+      final distance = _locationService.getDistanceFrom(
+        _partner!.latitude,
+        _partner!.longitude,
+      );
+      if (distance != null) {
+        partnerInfo.writeln('');
+        partnerInfo.writeln('거리: $distance');
+      }
       
       // MBTI 표시
       if (_partner!.mbti.isNotEmpty) {

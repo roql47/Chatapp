@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class AdService {
   static final AdService _instance = AdService._internal();
@@ -8,6 +9,10 @@ class AdService {
 
   InterstitialAd? _interstitialAd;
   bool _isInterstitialAdReady = false;
+  bool _isAdRemoved = false; // 광고 제거 상태
+  
+  // 광고 제거 상태 getter
+  bool get isAdRemoved => _isAdRemoved;
 
   // 테스트 광고 ID (실제 배포 시 AdMob 콘솔에서 발급받은 ID로 교체)
   // Android 테스트 전면 광고 ID: ca-app-pub-3940256099942544/1033173712
@@ -24,8 +29,51 @@ class AdService {
   // AdMob 초기화
   Future<void> initialize() async {
     await MobileAds.instance.initialize();
+    await _loadAdRemovalStatus();
     print('🟢 AdMob 초기화 완료');
-    _loadInterstitialAd();
+    
+    // 광고 제거가 안 된 경우에만 광고 로드
+    if (!_isAdRemoved) {
+      _loadInterstitialAd();
+    }
+  }
+  
+  // 광고 제거 상태 로드
+  Future<void> _loadAdRemovalStatus() async {
+    final prefs = await SharedPreferences.getInstance();
+    _isAdRemoved = prefs.getBool('ad_removed') ?? false;
+    print('🔵 광고 제거 상태: $_isAdRemoved');
+  }
+  
+  // 광고 제거 구매
+  Future<bool> purchaseAdRemoval() async {
+    try {
+      // TODO: 실제 인앱결제 연동
+      // 지금은 테스트용으로 바로 활성화
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('ad_removed', true);
+      _isAdRemoved = true;
+      
+      // 로드된 광고 정리
+      _interstitialAd?.dispose();
+      _interstitialAd = null;
+      _isInterstitialAdReady = false;
+      
+      print('🟢 광고 제거 완료');
+      return true;
+    } catch (e) {
+      print('🔴 광고 제거 실패: $e');
+      return false;
+    }
+  }
+  
+  // 광고 제거 상태 복원 (구매 복원용)
+  Future<bool> restoreAdRemoval() async {
+    // TODO: 실제 구매 복원 로직 연동
+    final prefs = await SharedPreferences.getInstance();
+    final restored = prefs.getBool('ad_removed') ?? false;
+    _isAdRemoved = restored;
+    return restored;
   }
 
   // 전면 광고 로드
@@ -66,6 +114,12 @@ class AdService {
 
   // 전면 광고 표시
   Future<bool> showInterstitialAd() async {
+    // 광고 제거 상태면 광고 표시 안 함
+    if (_isAdRemoved) {
+      print('🟢 광고 제거됨 - 광고 스킵');
+      return true; // 성공으로 처리
+    }
+    
     if (_isInterstitialAdReady && _interstitialAd != null) {
       await _interstitialAd!.show();
       return true;

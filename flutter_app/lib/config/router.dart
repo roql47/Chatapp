@@ -5,6 +5,7 @@ import '../providers/auth_provider.dart';
 import '../screens/splash_screen.dart';
 import '../screens/login_screen.dart';
 import '../screens/profile_setup_screen.dart';
+import '../screens/adult_verification_screen.dart';
 import '../screens/home_screen.dart';
 import '../screens/matching_screen.dart';
 import '../screens/chat_screen.dart';
@@ -37,6 +38,11 @@ class AppRouter {
         path: '/profile-setup',
         name: 'profile-setup',
         builder: (context, state) => const ProfileSetupScreen(),
+      ),
+      GoRoute(
+        path: '/adult-verification',
+        name: 'adult-verification',
+        builder: (context, state) => const AdultVerificationScreen(),
       ),
       GoRoute(
         path: '/home',
@@ -117,9 +123,11 @@ class AppRouter {
       final authProvider = Provider.of<AuthProvider>(context, listen: false);
       final isLoggedIn = authProvider.isLoggedIn;
       final needsProfile = authProvider.state == AuthState.needsProfile;
+      final needsAdultVerification = authProvider.state == AuthState.needsAdultVerification;
       final isOnSplash = state.matchedLocation == '/';
       final isOnLogin = state.matchedLocation == '/login';
       final isOnProfileSetup = state.matchedLocation == '/profile-setup';
+      final isOnAdultVerification = state.matchedLocation == '/adult-verification';
 
       // 스플래시 화면에서는 리다이렉트 하지 않음
       if (isOnSplash) return null;
@@ -129,13 +137,22 @@ class AppRouter {
         return '/profile-setup';
       }
 
+      // 성인인증이 필요한 경우
+      if (needsAdultVerification && !isOnAdultVerification) {
+        return '/adult-verification';
+      }
+
       // 로그인이 필요한 경우
-      if (!isLoggedIn && !isOnLogin && !isOnProfileSetup) {
+      if (!isLoggedIn && !isOnLogin && !isOnProfileSetup && !isOnAdultVerification) {
         return '/login';
       }
 
       // 이미 로그인된 경우 로그인 페이지 접근 방지
       if (isLoggedIn && isOnLogin) {
+        // 성인인증이 필요하면 성인인증 페이지로
+        if (needsAdultVerification) {
+          return '/adult-verification';
+        }
         return '/home';
       }
 

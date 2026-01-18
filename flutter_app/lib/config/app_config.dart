@@ -10,9 +10,28 @@ class AppConfig {
   static const String kakaoJavaScriptKey = 'f9be1b8ebbb3bac36393a20c006fdee6';
   
   // WebRTC STUN/TURN 서버 설정
-  static const List<Map<String, String>> iceServers = [
+  static const List<Map<String, dynamic>> iceServers = [
     {'urls': 'stun:stun.l.google.com:19302'},
     {'urls': 'stun:stun1.l.google.com:19302'},
+    {'urls': 'stun:stun2.l.google.com:19302'},
+    {'urls': 'stun:stun3.l.google.com:19302'},
+    {'urls': 'stun:stun4.l.google.com:19302'},
+    // 무료 TURN 서버 (OpenRelay)
+    {
+      'urls': 'turn:openrelay.metered.ca:80',
+      'username': 'openrelayproject',
+      'credential': 'openrelayproject',
+    },
+    {
+      'urls': 'turn:openrelay.metered.ca:443',
+      'username': 'openrelayproject',
+      'credential': 'openrelayproject',
+    },
+    {
+      'urls': 'turn:openrelay.metered.ca:443?transport=tcp',
+      'username': 'openrelayproject',
+      'credential': 'openrelayproject',
+    },
   ];
   
   // 앱 정보

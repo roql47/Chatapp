@@ -34,6 +34,26 @@ const userSchema = new mongoose.Schema({
     type: String,
     default: null, // 카카오에서 가져온 연령대 (예: '20~29')
   },
+  
+  // 성인인증
+  adultVerification: {
+    isVerified: {
+      type: Boolean,
+      default: false,
+    },
+    verifiedAt: {
+      type: Date,
+      default: null,
+    },
+    birthYear: {
+      type: Number,
+      default: null,
+    },
+    ci: {
+      type: String,
+      default: null, // 중복가입 방지용 고유값
+    },
+  },
   interests: {
     type: [String],
     default: [],
@@ -173,6 +193,26 @@ const userSchema = new mongoose.Schema({
     message: { type: Boolean, default: true },
     matching: { type: Boolean, default: true },
     gift: { type: Boolean, default: true },
+  },
+  
+  // 위치 정보
+  location: {
+    enabled: {
+      type: Boolean,
+      default: false,
+    },
+    latitude: {
+      type: Number,
+      default: null,
+    },
+    longitude: {
+      type: Number,
+      default: null,
+    },
+    updatedAt: {
+      type: Date,
+      default: null,
+    },
   },
 });
 

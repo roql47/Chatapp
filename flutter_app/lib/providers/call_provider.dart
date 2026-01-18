@@ -234,9 +234,9 @@ class CallProvider extends ChangeNotifier {
   }
 
   // 스피커 토글
-  void toggleSpeaker() {
-    _isSpeakerOn = !_isSpeakerOn;
-    // 실제 스피커 전환 로직은 플랫폼별로 구현 필요
+  Future<void> toggleSpeaker() async {
+    await _webrtcService.toggleSpeaker();
+    _isSpeakerOn = _webrtcService.isSpeakerOn;
     notifyListeners();
   }
 

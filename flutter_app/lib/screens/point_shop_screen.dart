@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
 import '../config/theme.dart';
+import '../services/ad_service.dart';
 
 class PointShopScreen extends StatefulWidget {
   const PointShopScreen({super.key});
@@ -22,23 +23,41 @@ class _PointShopScreenState extends State<PointShopScreen> {
       'price': '₩1,100',
       'priceValue': 1100,
       'bonus': 0,
-      'popular': false,
     },
     {
-      'id': 'points_500',
-      'points': 500,
+      'id': 'points_400',
+      'points': 400,
       'price': '₩4,400',
       'priceValue': 4400,
       'bonus': 50,
-      'popular': true,
+    },
+    {
+      'id': 'points_700',
+      'points': 700,
+      'price': '₩7,700',
+      'priceValue': 7700,
+      'bonus': 80,
     },
     {
       'id': 'points_1000',
       'points': 1000,
-      'price': '₩7,700',
-      'priceValue': 7700,
+      'price': '₩11,000',
+      'priceValue': 11000,
       'bonus': 150,
-      'popular': false,
+    },
+    {
+      'id': 'points_1500',
+      'points': 1500,
+      'price': '₩16,500',
+      'priceValue': 16500,
+      'bonus': 250,
+    },
+    {
+      'id': 'points_3000',
+      'points': 3000,
+      'price': '₩33,000',
+      'priceValue': 33000,
+      'bonus': 600,
     },
   ];
 
@@ -150,6 +169,24 @@ class _PointShopScreenState extends State<PointShopScreen> {
                       
                       ..._packages.map((pkg) => _buildPackageCard(pkg)),
                       
+                      const SizedBox(height: 32),
+                      
+                      // 광고 제거 패키지
+                      const Align(
+                        alignment: Alignment.centerLeft,
+                        child: Text(
+                          '광고 제거',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 18,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      
+                      _buildAdRemovalCard(),
+                      
                       const SizedBox(height: 24),
                       
                       // 포인트 사용 안내
@@ -241,7 +278,6 @@ class _PointShopScreenState extends State<PointShopScreen> {
   }
 
   Widget _buildPackageCard(Map<String, dynamic> package) {
-    final isPopular = package['popular'] == true;
     final hasBonus = package['bonus'] > 0;
 
     return Container(
@@ -249,143 +285,264 @@ class _PointShopScreenState extends State<PointShopScreen> {
       decoration: BoxDecoration(
         color: AppTheme.darkCard,
         borderRadius: BorderRadius.circular(16),
-        border: isPopular
-            ? Border.all(color: AppTheme.primaryColor, width: 2)
-            : null,
       ),
-      child: Stack(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: Row(
-              children: [
-                // 포인트 아이콘
-                Container(
-                  width: 60,
-                  height: 60,
-                  decoration: BoxDecoration(
-                    color: Colors.amber.withOpacity(0.2),
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: const Icon(
-                    Icons.monetization_on,
-                    color: Colors.amber,
-                    size: 36,
-                  ),
-                ),
-                const SizedBox(width: 16),
-                
-                // 포인트 정보
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            // 포인트 아이콘
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: Colors.amber.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: const Icon(
+                Icons.monetization_on,
+                color: Colors.amber,
+                size: 36,
+              ),
+            ),
+            const SizedBox(width: 16),
+            
+            // 포인트 정보
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
                     children: [
-                      Row(
-                        children: [
-                          Text(
-                            '${package['points']}P',
+                      Text(
+                        '${package['points']}P',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 20,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      if (hasBonus) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 2,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Colors.red,
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Text(
+                            '+${package['bonus']}P',
                             style: const TextStyle(
                               color: Colors.white,
-                              fontSize: 20,
+                              fontSize: 12,
                               fontWeight: FontWeight.bold,
                             ),
                           ),
-                          if (hasBonus) ...[
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 8,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: Colors.red,
-                                borderRadius: BorderRadius.circular(10),
-                              ),
-                              child: Text(
-                                '+${package['bonus']}P',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        hasBonus
-                            ? '총 ${package['points'] + package['bonus']}P'
-                            : '',
-                        style: const TextStyle(
-                          color: Colors.white60,
-                          fontSize: 12,
                         ),
-                      ),
+                      ],
                     ],
                   ),
-                ),
-                
-                // 가격 버튼
-                ElevatedButton(
-                  onPressed: _isLoading ? null : () => _purchasePoints(package),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: isPopular
-                        ? AppTheme.primaryColor
-                        : AppTheme.darkSurface,
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 20,
-                      vertical: 12,
+                  const SizedBox(height: 4),
+                  Text(
+                    hasBonus
+                        ? '총 ${package['points'] + package['bonus']}P'
+                        : '',
+                    style: const TextStyle(
+                      color: Colors.white60,
+                      fontSize: 12,
                     ),
                   ),
-                  child: _isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            color: Colors.white,
-                          ),
-                        )
-                      : Text(
-                          package['price'],
-                          style: const TextStyle(
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                ),
-              ],
-            ),
-          ),
-          
-          // 인기 태그
-          if (isPopular)
-            Positioned(
-              top: 0,
-              right: 16,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
-                decoration: const BoxDecoration(
-                  color: AppTheme.primaryColor,
-                  borderRadius: BorderRadius.only(
-                    bottomLeft: Radius.circular(8),
-                    bottomRight: Radius.circular(8),
-                  ),
-                ),
-                child: const Text(
-                  '인기',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
+                ],
               ),
             ),
-        ],
+            
+            // 가격 버튼
+            ElevatedButton(
+              onPressed: _isLoading ? null : () => _purchasePoints(package),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.darkSurface,
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 20,
+                  vertical: 12,
+                ),
+              ),
+              child: _isLoading
+                  ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.white,
+                      ),
+                    )
+                  : Text(
+                      package['price'],
+                      style: const TextStyle(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  Widget _buildAdRemovalCard() {
+    final adService = AdService();
+    final isAdRemoved = adService.isAdRemoved;
+    
+    return Container(
+      decoration: BoxDecoration(
+        gradient: isAdRemoved
+            ? null
+            : LinearGradient(
+                colors: [
+                  Colors.purple.withOpacity(0.3),
+                  Colors.blue.withOpacity(0.3),
+                ],
+              ),
+        color: isAdRemoved ? AppTheme.darkCard : null,
+        borderRadius: BorderRadius.circular(16),
+        border: isAdRemoved
+            ? null
+            : Border.all(color: Colors.purple.withOpacity(0.5), width: 2),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Row(
+          children: [
+            // 아이콘
+            Container(
+              width: 60,
+              height: 60,
+              decoration: BoxDecoration(
+                color: isAdRemoved
+                    ? Colors.green.withOpacity(0.2)
+                    : Colors.purple.withOpacity(0.2),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                isAdRemoved ? Icons.check_circle : Icons.block,
+                color: isAdRemoved ? Colors.green : Colors.purple,
+                size: 36,
+              ),
+            ),
+            const SizedBox(width: 16),
+            
+            // 정보
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    isAdRemoved ? '광고 제거됨' : '광고 제거',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    isAdRemoved
+                        ? '모든 광고가 제거되었습니다'
+                        : '영구적으로 모든 광고 제거',
+                    style: const TextStyle(
+                      color: Colors.white60,
+                      fontSize: 13,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            
+            // 버튼
+            if (!isAdRemoved)
+              ElevatedButton(
+                onPressed: _isLoading ? null : _purchaseAdRemoval,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.purple,
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 20,
+                    vertical: 12,
+                  ),
+                ),
+                child: _isLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : const Text(
+                        '₩4,400',
+                        style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+              )
+            else
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.green.withOpacity(0.2),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Row(
+                  children: [
+                    Icon(Icons.check, color: Colors.green, size: 18),
+                    SizedBox(width: 4),
+                    Text(
+                      '구매 완료',
+                      style: TextStyle(
+                        color: Colors.green,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+  
+  Future<void> _purchaseAdRemoval() async {
+    setState(() => _isLoading = true);
+    
+    try {
+      final adService = AdService();
+      final success = await adService.purchaseAdRemoval();
+      
+      if (success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('광고가 제거되었습니다! 🎉'),
+            backgroundColor: Colors.green,
+          ),
+        );
+        setState(() {}); // UI 새로고침
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('구매에 실패했습니다.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
 
   Widget _buildPointsInfo() {

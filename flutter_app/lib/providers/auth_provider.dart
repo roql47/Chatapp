@@ -9,6 +9,7 @@ enum AuthState {
   authenticated,
   unauthenticated,
   needsProfile,
+  needsAdultVerification,
 }
 
 class AuthProvider extends ChangeNotifier {
@@ -37,6 +38,10 @@ class AuthProvider extends ChangeNotifier {
       // 프로필 설정 완료 여부 확인
       if (_user!.gender.isEmpty || _user!.interests.isEmpty) {
         _state = AuthState.needsProfile;
+      }
+      // 성인인증 완료 여부 확인
+      else if (!_user!.isAdultVerified) {
+        _state = AuthState.needsAdultVerification;
       } else {
         _state = AuthState.authenticated;
         _connectSocket();
@@ -62,6 +67,10 @@ class AuthProvider extends ChangeNotifier {
       // 프로필 설정 완료 여부 확인
       if (_user!.gender.isEmpty || _user!.interests.isEmpty) {
         _state = AuthState.needsProfile;
+      }
+      // 성인인증 완료 여부 확인
+      else if (!_user!.isAdultVerified) {
+        _state = AuthState.needsAdultVerification;
       } else {
         _state = AuthState.authenticated;
         _connectSocket();
@@ -93,8 +102,14 @@ class AuthProvider extends ChangeNotifier {
     
     if (success) {
       _user = _authService.currentUser;
-      _state = AuthState.authenticated;
-      _connectSocket();
+      
+      // 성인인증 완료 여부 확인
+      if (!_user!.isAdultVerified) {
+        _state = AuthState.needsAdultVerification;
+      } else {
+        _state = AuthState.authenticated;
+        _connectSocket();
+      }
     } else {
       _error = '프로필 설정에 실패했습니다.';
     }
@@ -196,5 +211,15 @@ class AuthProvider extends ChangeNotifier {
   // 포인트 충분한지 확인
   Future<bool> hasEnoughPoints(int amount) async {
     return await _authService.hasEnoughPoints(amount);
+  }
+
+  // 성인인증 완료 처리
+  void onAdultVerificationComplete() {
+    if (_user != null) {
+      _user = _user!.copyWith(isAdultVerified: true);
+      _state = AuthState.authenticated;
+      _connectSocket();
+      notifyListeners();
+    }
   }
 }

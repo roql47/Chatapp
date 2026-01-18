@@ -74,6 +74,12 @@ dependencies:
   
   # URL 실행
   url_launcher: ^6.2.5
+  
+  # 위치 서비스
+  location: ^5.0.3
+  
+  # 스크린샷 방지
+  no_screenshot: ^0.3.1
 
 dev_dependencies:
   flutter_test:

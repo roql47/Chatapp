@@ -239,6 +239,72 @@ router.post('/points/check', authMiddleware, async (req, res) => {
 });
 
 // ============================================
+// 위치 관련 API
+// ============================================
+
+// 위치 업데이트
+router.put('/location', authMiddleware, async (req, res) => {
+  try {
+    const { latitude, longitude, enabled } = req.body;
+    
+    const user = await authService.getUserById(req.userId);
+    if (!user) {
+      return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
+    }
+    
+    user.location = {
+      enabled: enabled !== undefined ? enabled : true,
+      latitude: latitude || null,
+      longitude: longitude || null,
+      updatedAt: new Date(),
+    };
+    
+    await user.save();
+    
+    res.json({
+      message: '위치가 업데이트되었습니다.',
+      location: user.location,
+    });
+  } catch (error) {
+    console.error('위치 업데이트 오류:', error);
+    res.status(500).json({ message: '위치 업데이트에 실패했습니다.' });
+  }
+});
+
+// 위치 공유 설정 토글
+router.put('/location/toggle', authMiddleware, async (req, res) => {
+  try {
+    const { enabled } = req.body;
+    
+    const user = await authService.getUserById(req.userId);
+    if (!user) {
+      return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
+    }
+    
+    if (!user.location) {
+      user.location = {};
+    }
+    
+    user.location.enabled = enabled;
+    if (!enabled) {
+      user.location.latitude = null;
+      user.location.longitude = null;
+    }
+    user.location.updatedAt = new Date();
+    
+    await user.save();
+    
+    res.json({
+      message: enabled ? '위치 공유가 활성화되었습니다.' : '위치 공유가 비활성화되었습니다.',
+      enabled: user.location.enabled,
+    });
+  } catch (error) {
+    console.error('위치 설정 오류:', error);
+    res.status(500).json({ message: '위치 설정에 실패했습니다.' });
+  }
+});
+
+// ============================================
 // 테스트용 API (개발 환경에서만 사용)
 // ============================================
 
@@ -281,6 +347,116 @@ router.post('/test/create', async (req, res) => {
   } catch (error) {
     console.error('테스트 계정 생성 오류:', error);
     res.status(500).json({ message: '테스트 계정 생성에 실패했습니다.' });
+  }
+});
+
+// ============================================
+// 성인인증 API
+// ============================================
+
+// 성인인증 상태 확인
+router.get('/adult-verification/status', authMiddleware, async (req, res) => {
+  try {
+    const user = await authService.getUserById(req.userId);
+    if (!user) {
+      return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
+    }
+    
+    res.json({
+      isVerified: user.adultVerification?.isVerified || false,
+      verifiedAt: user.adultVerification?.verifiedAt,
+    });
+  } catch (error) {
+    console.error('성인인증 상태 확인 오류:', error);
+    res.status(500).json({ message: '성인인증 상태 확인에 실패했습니다.' });
+  }
+});
+
+// 카카오 인증으로 성인인증 처리
+router.post('/adult-verification/kakao', authMiddleware, async (req, res) => {
+  try {
+    const { birthYear, ci } = req.body;
+    
+    if (!birthYear) {
+      return res.status(400).json({ message: '생년 정보가 필요합니다.' });
+    }
+    
+    // 만 19세 이상인지 확인
+    const currentYear = new Date().getFullYear();
+    const age = currentYear - birthYear;
+    
+    if (age < 19) {
+      return res.status(403).json({ 
+        message: '만 19세 이상만 이용 가능합니다.',
+        age: age,
+      });
+    }
+    
+    // CI로 중복 인증 확인 (선택적)
+    if (ci) {
+      const User = require('../models/User');
+      const existingUser = await User.findOne({ 
+        'adultVerification.ci': ci,
+        _id: { $ne: req.userId }
+      });
+      
+      if (existingUser) {
+        return res.status(409).json({ 
+          message: '이미 다른 계정에서 인증된 정보입니다.' 
+        });
+      }
+    }
+    
+    // 성인인증 정보 업데이트
+    const User = require('../models/User');
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      {
+        'adultVerification.isVerified': true,
+        'adultVerification.verifiedAt': new Date(),
+        'adultVerification.birthYear': birthYear,
+        'adultVerification.ci': ci || null,
+      },
+      { new: true }
+    );
+    
+    res.json({
+      message: '성인인증이 완료되었습니다.',
+      isVerified: true,
+      verifiedAt: user.adultVerification.verifiedAt,
+    });
+  } catch (error) {
+    console.error('성인인증 처리 오류:', error);
+    res.status(500).json({ message: '성인인증 처리에 실패했습니다.' });
+  }
+});
+
+// 성인인증 우회 (테스트용 - 프로덕션에서는 비활성화)
+router.post('/adult-verification/bypass', authMiddleware, async (req, res) => {
+  try {
+    // 테스트 환경에서만 허용
+    if (process.env.NODE_ENV === 'production') {
+      return res.status(403).json({ message: '프로덕션 환경에서는 사용할 수 없습니다.' });
+    }
+    
+    const User = require('../models/User');
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      {
+        'adultVerification.isVerified': true,
+        'adultVerification.verifiedAt': new Date(),
+        'adultVerification.birthYear': 1990, // 테스트용
+      },
+      { new: true }
+    );
+    
+    res.json({
+      message: '테스트 성인인증이 완료되었습니다.',
+      isVerified: true,
+    });
+  } catch (error) {
+    console.error('테스트 성인인증 오류:', error);
+    res.status(500).json({ message: '테스트 성인인증에 실패했습니다.' });
   }
 });
 

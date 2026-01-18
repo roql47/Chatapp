@@ -89,6 +89,7 @@ class AuthService {
           interests: [],
           createdAt: DateTime.now(),
           points: savedPoints, // 저장된 포인트 사용
+          isAdultVerified: false, // 성인인증 필요
         );
         await _saveToken(_authToken!);
         print('🟢 테스트 모드 로그인 완료! (포인트: $savedPoints)');
@@ -126,6 +127,9 @@ class AuthService {
           final savedGender = prefs.getString('test_mode_gender') ?? 'other';
           final savedInterests = prefs.getStringList('test_mode_interests') ?? [];
           
+          // 테스트 모드 성인인증 여부 확인
+          final savedAdultVerified = prefs.getBool('test_mode_adult_verified') ?? false;
+          
           _authToken = savedToken;
           _currentUser = UserModel(
             id: savedToken.replaceFirst('test_token_', ''),
@@ -136,6 +140,7 @@ class AuthService {
             interests: savedInterests,
             createdAt: DateTime.now(),
             points: savedPoints,
+            isAdultVerified: savedAdultVerified,
           );
         } else {
           rethrow;

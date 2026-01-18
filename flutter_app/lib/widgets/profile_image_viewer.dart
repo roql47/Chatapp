@@ -12,6 +12,7 @@ class ProfileImageViewer extends StatelessWidget {
   final List<String>? interests;
   final String? gender;
   final DateTime? createdAt;
+  final String? distance;
 
   const ProfileImageViewer({
     super.key,
@@ -22,6 +23,7 @@ class ProfileImageViewer extends StatelessWidget {
     this.interests,
     this.gender,
     this.createdAt,
+    this.distance,
   });
 
   /// 프로필 이미지 뷰어를 다이얼로그로 표시
@@ -33,6 +35,7 @@ class ProfileImageViewer extends StatelessWidget {
     List<String>? interests,
     String? gender,
     DateTime? createdAt,
+    String? distance,
   }) {
     Navigator.of(context).push(
       PageRouteBuilder(
@@ -48,6 +51,7 @@ class ProfileImageViewer extends StatelessWidget {
             interests: interests,
             gender: gender,
             createdAt: createdAt,
+            distance: distance,
           );
         },
         transitionsBuilder: (context, animation, secondaryAnimation, child) {
@@ -87,11 +91,11 @@ class ProfileImageViewer extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  // 성별 표시
-                  if (gender != null && gender!.isNotEmpty)
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
+                  // 성별 및 거리 표시
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      if (gender != null && gender!.isNotEmpty) ...[
                         Icon(
                           gender == 'male' ? Icons.male : gender == 'female' ? Icons.female : Icons.person,
                           color: gender == 'male' ? Colors.blue : gender == 'female' ? Colors.pink : Colors.grey,
@@ -106,7 +110,28 @@ class ProfileImageViewer extends StatelessWidget {
                           ),
                         ),
                       ],
-                    ),
+                      if (gender != null && gender!.isNotEmpty && distance != null)
+                        Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          child: Text('•', style: TextStyle(color: Colors.white.withOpacity(0.5))),
+                        ),
+                      if (distance != null) ...[
+                        Icon(
+                          Icons.location_on,
+                          color: Colors.green.shade300,
+                          size: 18,
+                        ),
+                        const SizedBox(width: 4),
+                        Text(
+                          distance!,
+                          style: TextStyle(
+                            color: Colors.white.withOpacity(0.8),
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
                   const SizedBox(height: 20),
                   // 이미지
                   _buildImageContent(context),

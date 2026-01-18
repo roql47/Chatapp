@@ -98,6 +98,10 @@ const setupSocketHandlers = (io) => {
             interests: result.partner.interests,
             mbti: result.partner.mbti,
             createdAt: result.partner.createdAt,
+            location: result.partner.location?.enabled ? {
+              latitude: result.partner.location.latitude,
+              longitude: result.partner.location.longitude,
+            } : null,
           },
           filterBypassed: result.filterBypassed || false,
         });
@@ -117,6 +121,10 @@ const setupSocketHandlers = (io) => {
             interests: result.currentUser.interests,
             mbti: result.currentUser.mbti,
             createdAt: result.currentUser.createdAt,
+            location: result.currentUser.location?.enabled ? {
+              latitude: result.currentUser.location.latitude,
+              longitude: result.currentUser.location.longitude,
+            } : null,
           },
           filterBypassed: result.filterBypassed || false,
         });
@@ -166,6 +174,10 @@ const setupSocketHandlers = (io) => {
                   interests: retryResult.candidateUser.interests,
                   mbti: retryResult.candidateUser.mbti,
                   createdAt: retryResult.candidateUser.createdAt,
+                  location: retryResult.candidateUser.location?.enabled ? {
+                    latitude: retryResult.candidateUser.location.latitude,
+                    longitude: retryResult.candidateUser.location.longitude,
+                  } : null,
                 },
                 filterBypassed: true,
               });
@@ -185,6 +197,10 @@ const setupSocketHandlers = (io) => {
                   interests: currentUser.interests,
                   mbti: currentUser.mbti,
                   createdAt: currentUser.createdAt,
+                  location: currentUser.location?.enabled ? {
+                    latitude: currentUser.location.latitude,
+                    longitude: currentUser.location.longitude,
+                  } : null,
                 },
                 filterBypassed: true,
               });

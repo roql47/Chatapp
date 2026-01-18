@@ -46,10 +46,12 @@ class SocketService {
       return;
     }
     
+    print('Connecting to: ${AppConfig.serverUrl}');
+    
     _socket = io.io(
       AppConfig.serverUrl,
       io.OptionBuilder()
-          .setTransports(['websocket'])
+          .setTransports(['websocket', 'polling']) // polling 폴백 추가
           .setAuth({'token': token})
           .setQuery({'userId': userId})
           .enableAutoConnect()

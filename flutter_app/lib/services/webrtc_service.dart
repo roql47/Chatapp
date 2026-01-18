@@ -17,6 +17,7 @@ class WebRTCService {
   Function(RTCSessionDescription)? onAnswer;
 
   bool _isInitialized = false;
+  bool _isSpeakerOn = true;
   bool get isInitialized => _isInitialized;
 
   // 초기화
@@ -24,12 +25,19 @@ class WebRTCService {
     await localRenderer.initialize();
     await remoteRenderer.initialize();
     _isInitialized = true;
+    
+    // 스피커폰 기본 활성화
+    await Helper.setSpeakerphoneOn(true);
   }
 
   // 로컬 미디어 스트림 시작
   Future<void> startLocalStream({bool video = true, bool audio = true}) async {
     final Map<String, dynamic> mediaConstraints = {
-      'audio': audio,
+      'audio': audio ? {
+        'echoCancellation': true,
+        'noiseSuppression': true,
+        'autoGainControl': true,
+      } : false,
       'video': video ? {
         'facingMode': 'user',
         'width': {'ideal': 1280},
@@ -40,6 +48,16 @@ class WebRTCService {
     try {
       _localStream = await navigator.mediaDevices.getUserMedia(mediaConstraints);
       localRenderer.srcObject = _localStream;
+      
+      // 로컬 오디오 트랙 활성화 확인
+      for (var track in _localStream!.getAudioTracks()) {
+        track.enabled = true;
+        print('🎤 로컬 오디오 트랙 활성화: ${track.id}');
+      }
+      
+      // 스피커폰 활성화
+      await Helper.setSpeakerphoneOn(_isSpeakerOn);
+      
       onLocalStream?.call(_localStream!);
     } catch (e) {
       print('Error getting user media: $e');
@@ -71,9 +89,20 @@ class WebRTCService {
 
     // 원격 스트림 수신
     _peerConnection?.onTrack = (event) {
+      print('🎧 원격 트랙 수신: ${event.track.kind}');
       if (event.streams.isNotEmpty) {
         _remoteStream = event.streams[0];
         remoteRenderer.srcObject = _remoteStream;
+        
+        // 오디오 트랙 활성화 확인
+        for (var track in _remoteStream!.getAudioTracks()) {
+          track.enabled = true;
+          print('🔊 원격 오디오 트랙 활성화: ${track.id}');
+        }
+        
+        // 스피커폰 활성화
+        Helper.setSpeakerphoneOn(_isSpeakerOn);
+        
         onRemoteStream?.call(_remoteStream!);
       }
     };
@@ -157,6 +186,16 @@ class WebRTCService {
     }
     return true;
   }
+  
+  // 스피커 토글
+  Future<void> toggleSpeaker() async {
+    _isSpeakerOn = !_isSpeakerOn;
+    await Helper.setSpeakerphoneOn(_isSpeakerOn);
+    print('🔊 스피커: ${_isSpeakerOn ? "ON" : "OFF"}');
+  }
+  
+  // 스피커 상태
+  bool get isSpeakerOn => _isSpeakerOn;
 
   // 정리
   Future<void> dispose() async {
