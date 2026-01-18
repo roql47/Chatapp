@@ -9,6 +9,7 @@ import '../services/socket_service.dart';
 import '../providers/auth_provider.dart';
 import '../models/chat_message.dart';
 import '../widgets/profile_image_viewer.dart';
+import '../widgets/blurred_image.dart';
 
 class DMChatScreen extends StatefulWidget {
   final String roomId;
@@ -319,6 +320,8 @@ class _DMChatScreenState extends State<DMChatScreen> {
   }
 
   Widget _buildMessageBubble(ChatMessage message, bool isMe) {
+    final isImage = message.type == MessageType.image;
+    
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Row(
@@ -343,7 +346,9 @@ class _DMChatScreenState extends State<DMChatScreen> {
           ],
           Flexible(
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+              padding: isImage 
+                  ? const EdgeInsets.all(4)
+                  : const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
                 color: isMe ? AppTheme.primaryColor : AppTheme.darkCard,
                 borderRadius: BorderRadius.only(
@@ -356,13 +361,20 @@ class _DMChatScreenState extends State<DMChatScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    message.content,
-                    style: TextStyle(
-                      color: isMe ? Colors.white : Colors.white.withOpacity(0.9),
-                      fontSize: 15,
+                  if (isImage)
+                    BlurredImage(
+                      imageUrl: message.content,
+                      width: 200,
+                      onTapFullScreen: () => _showImageViewer(message.content),
+                    )
+                  else
+                    Text(
+                      message.content,
+                      style: TextStyle(
+                        color: isMe ? Colors.white : Colors.white.withOpacity(0.9),
+                        fontSize: 15,
+                      ),
                     ),
-                  ),
                   const SizedBox(height: 4),
                   Text(
                     _formatTime(message.timestamp),
@@ -377,6 +389,15 @@ class _DMChatScreenState extends State<DMChatScreen> {
           ),
           if (isMe) const SizedBox(width: 8),
         ],
+      ),
+    );
+  }
+  
+  // 이미지 전체화면 보기
+  void _showImageViewer(String imageUrl) {
+    Navigator.of(context).push(
+      MaterialPageRoute(
+        builder: (context) => _FullScreenImageViewer(imageUrl: imageUrl),
       ),
     );
   }
@@ -500,5 +521,74 @@ class _DMChatScreenState extends State<DMChatScreen> {
 
   String _formatTime(DateTime time) {
     return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+  }
+}
+
+// 이미지 전체 화면 뷰어
+class _FullScreenImageViewer extends StatefulWidget {
+  final String imageUrl;
+  
+  const _FullScreenImageViewer({required this.imageUrl});
+  
+  @override
+  State<_FullScreenImageViewer> createState() => _FullScreenImageViewerState();
+}
+
+class _FullScreenImageViewerState extends State<_FullScreenImageViewer> {
+  final TransformationController _transformationController = TransformationController();
+  
+  @override
+  void dispose() {
+    _transformationController.dispose();
+    super.dispose();
+  }
+  
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      appBar: AppBar(
+        backgroundColor: Colors.black,
+        elevation: 0,
+        leading: IconButton(
+          icon: const Icon(Icons.close, color: Colors.white),
+          onPressed: () => Navigator.pop(context),
+        ),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.zoom_out_map, color: Colors.white),
+            onPressed: () {
+              _transformationController.value = Matrix4.identity();
+            },
+            tooltip: '원래 크기로',
+          ),
+        ],
+      ),
+      body: Center(
+        child: InteractiveViewer(
+          transformationController: _transformationController,
+          minScale: 0.5,
+          maxScale: 4.0,
+          child: CachedNetworkImage(
+            imageUrl: widget.imageUrl,
+            fit: BoxFit.contain,
+            placeholder: (context, url) => const Center(
+              child: CircularProgressIndicator(color: Colors.white),
+            ),
+            errorWidget: (context, url, error) => const Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.error, color: Colors.white54, size: 48),
+                SizedBox(height: 16),
+                Text(
+                  '이미지를 불러올 수 없습니다',
+                  style: TextStyle(color: Colors.white54),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

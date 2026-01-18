@@ -16,6 +16,7 @@ import '../widgets/rating_dialog.dart';
 import '../widgets/gift_dialog.dart';
 import '../widgets/profile_image_viewer.dart';
 import '../widgets/gift_animation.dart';
+import '../widgets/blurred_image.dart';
 import 'dart:async';
 
 class ChatScreen extends StatefulWidget {
@@ -709,30 +710,10 @@ class _ChatScreenState extends State<ChatScreen> {
                 ),
               ),
               child: message.type == MessageType.image
-                  ? GestureDetector(
-                      onTap: () => _showImageViewer(message.content),
-                      child: ClipRRect(
-                        borderRadius: BorderRadius.circular(12),
-                        child: CachedNetworkImage(
-                          imageUrl: message.content,
-                          width: 200,
-                          fit: BoxFit.cover,
-                          placeholder: (context, url) => Container(
-                            width: 200,
-                            height: 150,
-                            color: AppTheme.darkCard,
-                            child: const Center(
-                              child: CircularProgressIndicator(),
-                            ),
-                          ),
-                          errorWidget: (context, url, error) => Container(
-                            width: 200,
-                            height: 150,
-                            color: AppTheme.darkCard,
-                            child: const Icon(Icons.error, color: Colors.white54),
-                          ),
-                        ),
-                      ),
+                  ? BlurredImage(
+                      imageUrl: message.content,
+                      width: 200,
+                      onTapFullScreen: () => _showImageViewer(message.content),
                     )
                   : Text(
                       message.content,
