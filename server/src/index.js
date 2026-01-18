@@ -57,16 +57,6 @@ app.use(hpp());
 
 // ===== Rate Limiting (API 호출 횟수 제한) =====
 
-// 전역 Rate Limiter - 1분당 100요청
-const globalLimiter = rateLimit({
-  windowMs: 60 * 1000, // 1분
-  max: 100,
-  message: { message: '너무 많은 요청입니다. 잠시 후 다시 시도해주세요.' },
-  standardHeaders: true,
-  legacyHeaders: false,
-});
-app.use('/api', globalLimiter);
-
 // 로그인 Rate Limiter (5분당 20요청)
 const authLimiter = rateLimit({
   windowMs: 5 * 60 * 1000, // 5분
@@ -77,15 +67,16 @@ const authLimiter = rateLimit({
 });
 app.use('/api/auth/kakao', authLimiter);
 
-// 성인인증 Rate Limiter (1분당 300요청)
-const adultVerificationLimiter = rateLimit({
+// 전역 Rate Limiter - 1분당 200요청 (성인인증 제외)
+const globalLimiter = rateLimit({
   windowMs: 60 * 1000, // 1분
-  max: 300,
-  message: { message: '인증 요청이 너무 많습니다. 1분 후 다시 시도해주세요.' },
+  max: 200,
+  message: { message: '너무 많은 요청입니다. 잠시 후 다시 시도해주세요.' },
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.path.startsWith('/api/auth/adult-verification'), // 성인인증 제외
 });
-app.use('/api/auth/adult-verification', adultVerificationLimiter);
+app.use('/api', globalLimiter);
 
 // 업로드 Rate Limiter - 1분당 10요청
 const uploadLimiter = rateLimit({
