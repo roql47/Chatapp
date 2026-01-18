@@ -11,16 +11,21 @@ class PointProduct {
   final int points;
   final int bonusPoints;
   final String title;
+  final bool isConsumable; // 소비성 여부 (포인트=true, 광고제거=false)
 
   const PointProduct({
     required this.id,
     required this.points,
     this.bonusPoints = 0,
     required this.title,
+    this.isConsumable = true,
   });
 
   int get totalPoints => points + bonusPoints;
 }
+
+// 광고 제거 상품 ID
+const String kAdRemovalProductId = 'ad_removal';
 
 class PurchaseService {
   static final PurchaseService _instance = PurchaseService._internal();
@@ -50,12 +55,20 @@ class PurchaseService {
       bonusPoints: 150,
       title: '1000 포인트 + 150 보너스',
     ),
+    // 광고 제거 상품 (비소비성)
+    PointProduct(
+      id: kAdRemovalProductId,
+      points: 0,
+      title: '광고 제거',
+      isConsumable: false,
+    ),
   ];
 
   static const Set<String> _productIds = {
     'points_100',
     'points_500',
     'points_1000',
+    kAdRemovalProductId,
   };
 
   List<ProductDetails> _products = [];
@@ -69,6 +82,7 @@ class PurchaseService {
   // 콜백
   Function(int points, String productId)? onPurchaseSuccess;
   Function(String error)? onPurchaseError;
+  Function()? onAdRemovalSuccess; // 광고 제거 성공 콜백
 
   // 초기화
   Future<void> initialize() async {
@@ -122,23 +136,30 @@ class PurchaseService {
       return false;
     }
 
-    final ProductDetails? product = _products.firstWhere(
-      (p) => p.id == productId,
-      orElse: () => throw Exception('상품을 찾을 수 없습니다.'),
-    );
-
-    if (product == null) {
+    ProductDetails? product;
+    try {
+      product = _products.firstWhere((p) => p.id == productId);
+    } catch (e) {
       onPurchaseError?.call('상품을 찾을 수 없습니다.');
       return false;
     }
 
     final PurchaseParam purchaseParam = PurchaseParam(productDetails: product);
 
+    // 상품 정보에서 소비성 여부 확인
+    final pointProduct = getProductById(productId);
+    final isConsumable = pointProduct?.isConsumable ?? true;
+
     try {
       _purchasePending = true;
-      final success = await _inAppPurchase.buyConsumable(
-        purchaseParam: purchaseParam,
-      );
+      bool success;
+      if (isConsumable) {
+        // 포인트 상품 (소비성)
+        success = await _inAppPurchase.buyConsumable(purchaseParam: purchaseParam);
+      } else {
+        // 광고 제거 상품 (비소비성)
+        success = await _inAppPurchase.buyNonConsumable(purchaseParam: purchaseParam);
+      }
       return success;
     } catch (e) {
       _purchasePending = false;
@@ -174,9 +195,18 @@ class PurchaseService {
     // TODO: 서버에서 구매 검증
     // purchaseDetails.verificationData를 서버로 전송하여 검증
 
+    final productId = purchaseDetails.productID;
+    
+    // 광고 제거 상품 처리
+    if (productId == kAdRemovalProductId) {
+      print('🟢 광고 제거 구매 완료!');
+      onAdRemovalSuccess?.call();
+      return;
+    }
+
     // 해당 상품의 포인트 찾기
     final product = products.firstWhere(
-      (p) => p.id == purchaseDetails.productID,
+      (p) => p.id == productId,
       orElse: () => const PointProduct(id: '', points: 0, title: ''),
     );
 

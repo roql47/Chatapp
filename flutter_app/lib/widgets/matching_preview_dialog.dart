@@ -21,8 +21,6 @@ class MatchingPreviewDialog extends StatelessWidget {
     final rating = partnerPreview['rating'] ?? {};
     final averageScore = (rating['averageScore'] ?? 0).toDouble();
     final totalRatings = rating['totalRatings'] ?? 0;
-    final isVip = partnerPreview['isVip'] ?? false;
-    final vipTier = partnerPreview['vipTier'] ?? 'none';
     final interestMatch = partnerPreview['interestMatch'] ?? {};
     final matchRate = interestMatch['matchRate'] ?? 0;
     final commonInterests = List<String>.from(interestMatch['commonInterests'] ?? []);
@@ -34,9 +32,6 @@ class MatchingPreviewDialog extends StatelessWidget {
         decoration: BoxDecoration(
           color: AppTheme.darkCard,
           borderRadius: BorderRadius.circular(24),
-          border: isVip
-              ? Border.all(color: _getVipColor(vipTier), width: 2)
-              : null,
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -53,65 +48,25 @@ class MatchingPreviewDialog extends StatelessWidget {
             const SizedBox(height: 20),
 
             // 프로필 이미지
-            Stack(
-              children: [
-                CircleAvatar(
-                  radius: 50,
-                  backgroundColor: AppTheme.primaryColor,
-                  backgroundImage:
-                      profileImage != null ? NetworkImage(profileImage) : null,
-                  child: profileImage == null
-                      ? const Icon(Icons.person, size: 50, color: Colors.white)
-                      : null,
-                ),
-                if (isVip)
-                  Positioned(
-                    right: 0,
-                    bottom: 0,
-                    child: Container(
-                      padding: const EdgeInsets.all(4),
-                      decoration: BoxDecoration(
-                        color: _getVipColor(vipTier),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.star, color: Colors.white, size: 16),
-                    ),
-                  ),
-              ],
+            CircleAvatar(
+              radius: 50,
+              backgroundColor: AppTheme.primaryColor,
+              backgroundImage:
+                  profileImage != null ? NetworkImage(profileImage) : null,
+              child: profileImage == null
+                  ? const Icon(Icons.person, size: 50, color: Colors.white)
+                  : null,
             ),
             const SizedBox(height: 12),
 
             // 닉네임
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  nickname,
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 22,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                if (isVip) ...[
-                  const SizedBox(width: 8),
-                  Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                    decoration: BoxDecoration(
-                      color: _getVipColor(vipTier),
-                      borderRadius: BorderRadius.circular(10),
-                    ),
-                    child: Text(
-                      _getVipName(vipTier),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                  ),
-                ],
-              ],
+            Text(
+              nickname,
+              style: const TextStyle(
+                color: Colors.white,
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+              ),
             ),
             const SizedBox(height: 8),
 
@@ -217,31 +172,5 @@ class MatchingPreviewDialog extends StatelessWidget {
         ),
       ),
     );
-  }
-
-  Color _getVipColor(String tier) {
-    switch (tier) {
-      case 'gold':
-        return Colors.amber;
-      case 'silver':
-        return Colors.blueGrey;
-      case 'bronze':
-        return Colors.brown;
-      default:
-        return Colors.grey;
-    }
-  }
-
-  String _getVipName(String tier) {
-    switch (tier) {
-      case 'gold':
-        return 'GOLD';
-      case 'silver':
-        return 'SILVER';
-      case 'bronze':
-        return 'BRONZE';
-      default:
-        return '';
-    }
   }
 }

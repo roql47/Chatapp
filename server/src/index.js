@@ -17,7 +17,6 @@ const reportRoutes = require('./routes/reportRoutes');
 const friendRoutes = require('./routes/friendRoutes');
 const ratingRoutes = require('./routes/ratingRoutes');
 const giftRoutes = require('./routes/giftRoutes');
-const vipRoutes = require('./routes/vipRoutes');
 const chatRoutes = require('./routes/chatRoutes');
 const uploadRoutes = require('./routes/uploadRoutes');
 
@@ -101,7 +100,6 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/friends', friendRoutes);
 app.use('/api/ratings', ratingRoutes);
 app.use('/api/gifts', giftRoutes);
-app.use('/api/vip', vipRoutes);
 app.use('/api/chat', chatRoutes);
 app.use('/api/upload', uploadRoutes);
 

@@ -234,6 +234,16 @@ const userSchema = new mongoose.Schema({
       default: null, // 이번 주기 시작일
     },
   },
+  
+  // 광고 제거 (인앱결제)
+  adRemoved: {
+    type: Boolean,
+    default: false,
+  },
+  adRemovedAt: {
+    type: Date,
+    default: null,
+  },
 });
 
 // 인덱스 설정

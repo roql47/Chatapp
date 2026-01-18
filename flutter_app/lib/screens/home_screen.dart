@@ -544,16 +544,6 @@ class _HomeScreenState extends State<HomeScreen>
                   ),
                   Divider(color: isDark ? Colors.white12 : Colors.black12, height: 32),
                   _buildDrawerItem(
-                    icon: Icons.workspace_premium,
-                    title: 'VIP 멤버십',
-                    isDark: isDark,
-                    onTap: () {
-                      Navigator.pop(context);
-                      context.push('/vip-shop');
-                    },
-                    textColor: Colors.amber,
-                  ),
-                  _buildDrawerItem(
                     icon: Icons.shopping_bag,
                     title: '포인트 충전',
                     isDark: isDark,

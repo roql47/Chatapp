@@ -651,4 +651,83 @@ router.post('/attendance/check-in', authMiddleware, async (req, res) => {
   }
 });
 
+// ===== 광고 제거 API =====
+
+// 광고 제거 상태 조회
+router.get('/ad-removal', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
+    }
+    
+    res.json({
+      adRemoved: user.adRemoved || false,
+      adRemovedAt: user.adRemovedAt,
+    });
+  } catch (error) {
+    console.error('광고 제거 상태 조회 오류:', error);
+    res.status(500).json({ message: '광고 제거 상태를 가져오는데 실패했습니다.' });
+  }
+});
+
+// 광고 제거 설정 (인앱결제 완료 후 호출)
+router.post('/ad-removal', authMiddleware, async (req, res) => {
+  try {
+    const { purchaseToken, productId } = req.body;
+    
+    // TODO: Google Play / App Store에서 purchaseToken 검증
+    // 실제 배포 시 서버 사이드 영수증 검증 필수!
+    
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
+    }
+    
+    // 이미 광고 제거됨
+    if (user.adRemoved) {
+      return res.json({
+        message: '이미 광고가 제거되어 있습니다.',
+        adRemoved: true,
+        adRemovedAt: user.adRemovedAt,
+      });
+    }
+    
+    // 광고 제거 설정
+    user.adRemoved = true;
+    user.adRemovedAt = new Date();
+    await user.save();
+    
+    console.log(`🟢 광고 제거 완료: ${user.nickname} (${req.userId})`);
+    
+    res.json({
+      message: '광고가 제거되었습니다!',
+      adRemoved: true,
+      adRemovedAt: user.adRemovedAt,
+    });
+  } catch (error) {
+    console.error('광고 제거 설정 오류:', error);
+    res.status(500).json({ message: '광고 제거에 실패했습니다.' });
+  }
+});
+
+// 광고 제거 복원 (재설치 시 호출)
+router.post('/ad-removal/restore', authMiddleware, async (req, res) => {
+  try {
+    const user = await User.findById(req.userId);
+    if (!user) {
+      return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
+    }
+    
+    res.json({
+      message: user.adRemoved ? '광고 제거가 복원되었습니다!' : '복원할 구매 내역이 없습니다.',
+      adRemoved: user.adRemoved || false,
+      adRemovedAt: user.adRemovedAt,
+    });
+  } catch (error) {
+    console.error('광고 제거 복원 오류:', error);
+    res.status(500).json({ message: '광고 제거 복원에 실패했습니다.' });
+  }
+});
+
 module.exports = router;

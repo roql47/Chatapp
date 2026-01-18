@@ -14,7 +14,6 @@ import '../screens/video_call_screen.dart';
 import '../screens/settings_screen.dart';
 import '../screens/point_shop_screen.dart';
 import '../screens/friends_screen.dart';
-import '../screens/vip_shop_screen.dart';
 import '../screens/chat_history_screen.dart';
 import '../screens/blocked_users_screen.dart';
 import '../screens/gift_ranking_screen.dart';
@@ -81,11 +80,6 @@ class AppRouter {
         path: '/friends',
         name: 'friends',
         builder: (context, state) => const FriendsScreen(),
-      ),
-      GoRoute(
-        path: '/vip-shop',
-        name: 'vip-shop',
-        builder: (context, state) => const VipShopScreen(),
       ),
       GoRoute(
         path: '/chat-history',

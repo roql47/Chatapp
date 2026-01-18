@@ -64,14 +64,7 @@ const calculateMatchScore = (currentUser, candidateUser, filter) => {
     score += candidateUser.rating.averageScore * 5;
   }
   
-  // 3. VIP 우선순위 (VIP면 +20점)
-  if (candidateUser.vip?.isVip) {
-    if (candidateUser.vip.tier === 'gold') score += 20;
-    else if (candidateUser.vip.tier === 'silver') score += 15;
-    else if (candidateUser.vip.tier === 'bronze') score += 10;
-  }
-  
-  // 4. 대기 시간 보정 (오래 기다린 사람 우선)
+  // 3. 대기 시간 보정 (오래 기다린 사람 우선)
   const waitTime = Date.now() - (matchingQueue.get(candidateUser._id.toString())?.timestamp || Date.now());
   score += Math.min(waitTime / 10000, 5); // 최대 5점
   
@@ -241,8 +234,6 @@ const createMatchPreview = (partner, interestMatch) => {
       averageScore: partner.rating?.averageScore || 0,
       totalRatings: partner.rating?.totalRatings || 0,
     },
-    isVip: partner.vip?.isVip || false,
-    vipTier: partner.vip?.tier || 'none',
     interestMatch: interestMatch || { matchRate: 0, commonInterests: [] },
   };
 };
@@ -279,31 +270,10 @@ const hasGenderFilter = (filter) => {
   return filter.preferredGender && filter.preferredGender !== 'any';
 };
 
-// VIP 성별 필터 무료 사용 확인
-const checkVipGenderFilterBenefit = async (userId) => {
-  const user = await User.findById(userId);
-  if (!user?.vip?.isVip) return false;
-  
-  // VIP 만료 확인
-  if (user.vip.expiresAt && new Date() > user.vip.expiresAt) return false;
-  
-  // 골드는 무제한
-  if (user.vip.tier === 'gold') return true;
-  
-  // TODO: 브론즈/실버는 일일 횟수 제한 추적 필요
-  return user.vip.tier === 'silver' || user.vip.tier === 'bronze';
-};
-
 // 포인트 차감 (성별 필터 시)
 const deductPointsForGenderFilter = async (userId, filter) => {
   if (!hasGenderFilter(filter)) {
     return { success: true };
-  }
-
-  // VIP 혜택 확인
-  const hasVipBenefit = await checkVipGenderFilterBenefit(userId);
-  if (hasVipBenefit) {
-    return { success: true, usedVipBenefit: true };
   }
 
   const user = await User.findById(userId);

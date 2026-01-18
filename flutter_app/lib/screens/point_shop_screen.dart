@@ -190,6 +190,9 @@ class _PointShopScreenState extends State<PointShopScreen> {
                       
                       _buildAdRemovalCard(isDark),
                       
+                      const SizedBox(height: 8),
+                      _buildRestorePurchaseButton(isDark),
+                      
                       const SizedBox(height: 24),
                       
                       // 포인트 사용 안내
@@ -530,6 +533,65 @@ class _PointShopScreenState extends State<PointShopScreen> {
         ),
       ),
     );
+  }
+  
+  Widget _buildRestorePurchaseButton(bool isDark) {
+    return Center(
+      child: TextButton.icon(
+        onPressed: _isLoading ? null : _restorePurchases,
+        icon: Icon(
+          Icons.restore,
+          color: isDark ? Colors.white60 : Colors.black45,
+        ),
+        label: Text(
+          '구매 복원',
+          style: TextStyle(
+            color: isDark ? Colors.white60 : Colors.black45,
+          ),
+        ),
+      ),
+    );
+  }
+  
+  Future<void> _restorePurchases() async {
+    setState(() => _isLoading = true);
+    
+    try {
+      final adService = AdService();
+      final restored = await adService.restoreAdRemoval();
+      
+      if (mounted) {
+        if (restored) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('구매가 복원되었습니다! 🎉'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          setState(() {}); // UI 새로고침
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('복원할 구매 내역이 없습니다.'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('구매 복원에 실패했습니다.'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _isLoading = false);
+      }
+    }
   }
   
   Future<void> _purchaseAdRemoval() async {
