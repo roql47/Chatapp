@@ -105,7 +105,7 @@ router.post('/reject/:requestId', authMiddleware, async (req, res) => {
   }
 });
 
-// 친구 목록 조회
+// 친구 목록 조회 (최신 메시지 포함)
 router.get('/list', authMiddleware, async (req, res) => {
   try {
     const userId = req.userId;
@@ -118,11 +118,42 @@ router.get('/list', authMiddleware, async (req, res) => {
       ]
     }).populate('requesterId receiverId', 'nickname profileImage isOnline');
 
-    // 친구 정보 정리
-    const friendList = friends.map(f => {
+    // 친구 정보 정리 및 최신 메시지 조회
+    const friendList = await Promise.all(friends.map(async (f) => {
       const friend = f.requesterId._id.toString() === userId 
         ? f.receiverId 
         : f.requesterId;
+      
+      // DM 채팅방 찾기
+      const chatRoom = await ChatRoom.findOne({
+        participants: { $all: [userId, friend._id], $size: 2 },
+        isDM: true,
+      });
+      
+      let lastMessage = null;
+      let lastMessageTime = null;
+      let unreadCount = 0;
+      
+      if (chatRoom) {
+        // 최신 메시지 조회
+        const latestMessage = await Message.findOne({ roomId: chatRoom._id })
+          .sort({ timestamp: -1 })
+          .limit(1);
+        
+        if (latestMessage) {
+          // 이미지인 경우 "사진" 텍스트로 표시
+          lastMessage = latestMessage.type === 'image' ? '📷 사진' : latestMessage.content;
+          lastMessageTime = latestMessage.timestamp;
+          
+          // 읽지 않은 메시지 수 (상대방이 보낸 메시지 중 읽지 않은 것)
+          unreadCount = await Message.countDocuments({
+            roomId: chatRoom._id,
+            senderId: friend._id,
+            isRead: false,
+          });
+        }
+      }
+      
       return {
         id: f._id,
         oderId: friend._id, // 기존 호환성 유지
@@ -132,7 +163,18 @@ router.get('/list', authMiddleware, async (req, res) => {
         isOnline: friend.isOnline,
         status: 'accepted',
         createdAt: f.acceptedAt || f.createdAt,
+        lastMessage,
+        lastMessageTime,
+        unreadCount,
       };
+    }));
+    
+    // 최신 메시지 시간 기준으로 정렬 (최신 대화가 위로)
+    friendList.sort((a, b) => {
+      if (!a.lastMessageTime && !b.lastMessageTime) return 0;
+      if (!a.lastMessageTime) return 1;
+      if (!b.lastMessageTime) return -1;
+      return new Date(b.lastMessageTime) - new Date(a.lastMessageTime);
     });
 
     res.json({ friends: friendList });

@@ -317,13 +317,13 @@ class _FriendsScreenState extends State<FriendsScreen>
             Stack(
               children: [
                 CircleAvatar(
-                  radius: 24,
+                  radius: 28,
                   backgroundColor: AppTheme.primaryColor,
                   backgroundImage: friend.profileImage != null
                       ? NetworkImage(friend.profileImage!)
                       : null,
                   child: friend.profileImage == null
-                      ? const Icon(Icons.person, color: Colors.white)
+                      ? const Icon(Icons.person, color: Colors.white, size: 28)
                       : null,
                 ),
                 if (friend.isOnline)
@@ -331,8 +331,8 @@ class _FriendsScreenState extends State<FriendsScreen>
                     right: 0,
                     bottom: 0,
                     child: Container(
-                      width: 12,
-                      height: 12,
+                      width: 14,
+                      height: 14,
                       decoration: BoxDecoration(
                         color: Colors.green,
                         shape: BoxShape.circle,
@@ -345,36 +345,74 @@ class _FriendsScreenState extends State<FriendsScreen>
                   ),
               ],
             ),
-            const SizedBox(width: 16),
-            // 닉네임
+            const SizedBox(width: 14),
+            // 닉네임 및 최신 메시지
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    friend.nickname,
-                    style: TextStyle(
-                      color: isDark ? Colors.white : Colors.black87,
-                      fontSize: 16,
-                      fontWeight: FontWeight.w500,
-                    ),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          friend.nickname,
+                          style: TextStyle(
+                            color: isDark ? Colors.white : Colors.black87,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      // 최신 메시지 시간
+                      if (friend.lastMessageTime != null)
+                        Text(
+                          _formatMessageTime(friend.lastMessageTime!),
+                          style: TextStyle(
+                            color: isDark ? Colors.white38 : Colors.black38,
+                            fontSize: 12,
+                          ),
+                        ),
+                    ],
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    friend.isOnline ? '온라인' : '오프라인',
-                    style: TextStyle(
-                      color: friend.isOnline ? Colors.green : (isDark ? Colors.white38 : Colors.black38),
-                      fontSize: 12,
-                    ),
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          friend.lastMessage ?? (friend.isOnline ? '온라인' : '오프라인'),
+                          style: TextStyle(
+                            color: friend.lastMessage != null 
+                                ? (isDark ? Colors.white60 : Colors.black54)
+                                : (friend.isOnline ? Colors.green : (isDark ? Colors.white38 : Colors.black38)),
+                            fontSize: 14,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      // 읽지 않은 메시지 배지
+                      if (friend.unreadCount > 0)
+                        Container(
+                          margin: const EdgeInsets.only(left: 8),
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppTheme.primaryColor,
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            friend.unreadCount > 99 ? '99+' : '${friend.unreadCount}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ),
+                    ],
                   ),
                 ],
               ),
-            ),
-            // 메시지 버튼
-            IconButton(
-              onPressed: () => _startDM(friend),
-              icon: const Icon(Icons.chat_bubble_outline, color: AppTheme.primaryColor),
-              tooltip: 'DM 보내기',
             ),
             // 더보기 버튼
             PopupMenuButton<String>(
@@ -402,6 +440,27 @@ class _FriendsScreenState extends State<FriendsScreen>
         ),
       ),
     );
+  }
+  
+  // 메시지 시간 포맷팅 (카카오톡 스타일)
+  String _formatMessageTime(DateTime time) {
+    final now = DateTime.now();
+    final diff = now.difference(time);
+    
+    if (diff.inDays == 0) {
+      // 오늘
+      return '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}';
+    } else if (diff.inDays == 1) {
+      // 어제
+      return '어제';
+    } else if (diff.inDays < 7) {
+      // 이번 주
+      const weekdays = ['월', '화', '수', '목', '금', '토', '일'];
+      return '${weekdays[time.weekday - 1]}요일';
+    } else {
+      // 그 이전
+      return '${time.month}/${time.day}';
+    }
   }
 
   Widget _buildReceivedRequestTile(FriendModel request, bool isDark) {

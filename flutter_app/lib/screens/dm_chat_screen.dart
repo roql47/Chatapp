@@ -328,6 +328,7 @@ class _DMChatScreenState extends State<DMChatScreen> {
         mainAxisAlignment: isMe ? MainAxisAlignment.end : MainAxisAlignment.start,
         crossAxisAlignment: CrossAxisAlignment.end,
         children: [
+          // 상대방 프로필
           if (!isMe) ...[
             GestureDetector(
               onTap: _showPartnerProfile,
@@ -344,11 +345,27 @@ class _DMChatScreenState extends State<DMChatScreen> {
             ),
             const SizedBox(width: 8),
           ],
+          // 내가 보낸 메시지: 시간 왼쪽에 표시
+          if (isMe)
+            Padding(
+              padding: const EdgeInsets.only(right: 6, bottom: 2),
+              child: Text(
+                _formatTime(message.timestamp),
+                style: const TextStyle(
+                  color: Colors.white38,
+                  fontSize: 11,
+                ),
+              ),
+            ),
+          // 메시지 버블
           Flexible(
             child: Container(
+              constraints: BoxConstraints(
+                maxWidth: MediaQuery.of(context).size.width * 0.65,
+              ),
               padding: isImage 
                   ? const EdgeInsets.all(4)
-                  : const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  : const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               decoration: BoxDecoration(
                 color: isMe ? AppTheme.primaryColor : AppTheme.darkCard,
                 borderRadius: BorderRadius.only(
@@ -358,36 +375,33 @@ class _DMChatScreenState extends State<DMChatScreen> {
                   bottomRight: Radius.circular(isMe ? 4 : 16),
                 ),
               ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  if (isImage)
-                    BlurredImage(
+              child: isImage
+                  ? BlurredImage(
                       imageUrl: message.content,
                       width: 200,
                       onTapFullScreen: () => _showImageViewer(message.content),
                     )
-                  else
-                    Text(
+                  : Text(
                       message.content,
                       style: TextStyle(
                         color: isMe ? Colors.white : Colors.white.withOpacity(0.9),
                         fontSize: 15,
                       ),
                     ),
-                  const SizedBox(height: 4),
-                  Text(
-                    _formatTime(message.timestamp),
-                    style: TextStyle(
-                      color: isMe ? Colors.white60 : Colors.white38,
-                      fontSize: 10,
-                    ),
-                  ),
-                ],
-              ),
             ),
           ),
-          if (isMe) const SizedBox(width: 8),
+          // 상대방 메시지: 시간 오른쪽에 표시
+          if (!isMe)
+            Padding(
+              padding: const EdgeInsets.only(left: 6, bottom: 2),
+              child: Text(
+                _formatTime(message.timestamp),
+                style: const TextStyle(
+                  color: Colors.white38,
+                  fontSize: 11,
+                ),
+              ),
+            ),
         ],
       ),
     );

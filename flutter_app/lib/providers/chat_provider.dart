@@ -100,6 +100,7 @@ class ChatProvider extends ChangeNotifier {
       
       // 30분 이상 지난 세션은 무시
       if (DateTime.now().difference(savedAt).inMinutes > 30) {
+        print('⏰ 세션 만료 (30분 경과) - 세션 삭제');
         await clearSession();
         return;
       }
@@ -113,17 +114,24 @@ class ChatProvider extends ChangeNotifier {
       
       print('🔄 채팅 세션 복원됨: ${_currentRoom!.id}');
       
-      // 소켓 연결 후 방에 다시 참여
-      if (_socketService.isConnected && _currentRoom != null) {
-        _socketService.joinRoom(_currentRoom!.id);
-      }
-      
       _isRestoring = false;
       notifyListeners();
     } catch (e) {
       print('채팅 세션 복원 오류: $e');
       await clearSession();
       _isRestoring = false;
+    }
+  }
+  
+  // 세션 복원 후 채팅방 재참여 (소켓 연결 후 호출)
+  Future<void> rejoinRoom() async {
+    if (_currentRoom != null && _matchingState == MatchingState.chatting) {
+      if (_socketService.isConnected) {
+        _socketService.joinRoom(_currentRoom!.id);
+        print('🔌 채팅방 재참여: ${_currentRoom!.id}');
+      } else {
+        print('⚠️ 소켓 미연결 - 채팅방 재참여 대기');
+      }
     }
   }
   

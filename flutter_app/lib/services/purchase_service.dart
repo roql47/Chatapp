@@ -123,7 +123,12 @@ class PurchaseService {
 
   // 구매 처리
   Future<bool> buyProduct(String productId) async {
+    print('🔵 buyProduct 호출: $productId');
+    print('🔵 스토어 사용 가능: $_isAvailable');
+    print('🔵 로드된 상품: ${_products.map((p) => p.id).toList()}');
+    
     if (!_isAvailable) {
+      print('🔴 스토어 사용 불가');
       onPurchaseError?.call('스토어를 사용할 수 없습니다.');
       return false;
     }
@@ -131,8 +136,11 @@ class PurchaseService {
     ProductDetails? product;
     try {
       product = _products.firstWhere((p) => p.id == productId);
+      print('🔵 상품 찾음: ${product.id}, 가격: ${product.price}');
     } catch (e) {
-      onPurchaseError?.call('상품을 찾을 수 없습니다.');
+      print('🔴 상품을 찾을 수 없음: $productId');
+      print('🔴 등록된 상품 ID: ${_products.map((p) => p.id).toList()}');
+      onPurchaseError?.call('상품을 찾을 수 없습니다. 스토어에 상품이 등록되어 있는지 확인해주세요.');
       return false;
     }
 
@@ -141,20 +149,25 @@ class PurchaseService {
     // 상품 정보에서 소비성 여부 확인
     final pointProduct = getProductById(productId);
     final isConsumable = pointProduct?.isConsumable ?? true;
+    print('🔵 소비성 여부: $isConsumable');
 
     try {
       _purchasePending = true;
       bool success;
       if (isConsumable) {
         // 포인트 상품 (소비성)
+        print('🔵 소비성 상품 구매 시작...');
         success = await _inAppPurchase.buyConsumable(purchaseParam: purchaseParam);
       } else {
         // 광고 제거 상품 (비소비성)
+        print('🔵 비소비성 상품 구매 시작...');
         success = await _inAppPurchase.buyNonConsumable(purchaseParam: purchaseParam);
       }
+      print('🔵 구매 요청 결과: $success');
       return success;
     } catch (e) {
       _purchasePending = false;
+      print('🔴 구매 시작 오류: $e');
       onPurchaseError?.call('구매 시작 실패: $e');
       return false;
     }

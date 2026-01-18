@@ -11,6 +11,7 @@ import '../models/chat_message.dart';
 import '../services/storage_service.dart';
 import '../services/api_service.dart';
 import '../services/location_service.dart';
+import '../services/socket_service.dart';
 import '../config/theme.dart';
 import '../widgets/rating_dialog.dart';
 import '../widgets/gift_dialog.dart';
@@ -26,11 +27,12 @@ class ChatScreen extends StatefulWidget {
   State<ChatScreen> createState() => _ChatScreenState();
 }
 
-class _ChatScreenState extends State<ChatScreen> {
+class _ChatScreenState extends State<ChatScreen> with WidgetsBindingObserver {
   final TextEditingController _messageController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
   final StorageService _storageService = StorageService();
   final LocationService _locationService = LocationService();
+  final SocketService _socketService = SocketService();
   Timer? _typingTimer;
   bool _isTyping = false;
   bool _isShowingCallDialog = false;
@@ -38,16 +40,45 @@ class _ChatScreenState extends State<ChatScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     // 스크린샷 방지 활성화
     _enableSecureMode();
-    // 통화 수신 감지
+    // 통화 수신 감지 및 소켓 연결 확인
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkIncomingCall();
+      _ensureSocketConnection();
+    });
+  }
+  
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+    if (state == AppLifecycleState.resumed) {
+      // 앱이 포그라운드로 돌아왔을 때 소켓 연결 확인
+      print('📱 ChatScreen: 포그라운드 복귀 - 소켓 연결 확인');
+      _ensureSocketConnection();
+    }
+  }
+  
+  // 소켓 연결 확인 및 채팅방 재참여
+  void _ensureSocketConnection() {
+    final chatProvider = Provider.of<ChatProvider>(context, listen: false);
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    
+    if (!_socketService.isConnected && authProvider.user != null && authProvider.token != null) {
+      print('🔌 소켓 재연결 시도...');
+      _socketService.connect(authProvider.user!.id, authProvider.token!);
+    }
+    
+    // 채팅방 재참여
+    Future.delayed(const Duration(milliseconds: 500), () {
+      chatProvider.rejoinRoom();
     });
   }
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     // 스크린샷 방지 비활성화
     _disableSecureMode();
     _messageController.dispose();

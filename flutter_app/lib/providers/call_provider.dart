@@ -47,8 +47,11 @@ class CallProvider extends ChangeNotifier {
     _socketService.onCallOffer = (data) async {
       _currentRoomId = data['roomId'];
       _pendingOfferData = data['offer']; // offer 데이터 저장
+      // 통화 타입 설정 (서버에서 전달받은 값 사용)
+      final callTypeStr = data['callType'] as String? ?? 'video';
+      _callType = callTypeStr == 'audio' ? CallType.audio : CallType.video;
       _callState = CallState.ringing;
-      print('📞 통화 요청 수신: roomId=${data['roomId']}');
+      print('📞 통화 요청 수신: roomId=${data['roomId']}, callType=$callTypeStr');
       notifyListeners();
     };
 
@@ -120,7 +123,7 @@ class CallProvider extends ChangeNotifier {
       _socketService.sendCallOffer(roomId, {
         'sdp': offer.sdp,
         'type': offer.type,
-      });
+      }, callType: type == CallType.video ? 'video' : 'audio');
 
       notifyListeners();
     } catch (e) {
@@ -139,12 +142,13 @@ class CallProvider extends ChangeNotifier {
     }
     
     try {
-      print('📞 통화 수락 중...');
+      print('📞 통화 수락 중... (타입: ${_callType == CallType.video ? "영상" : "음성"})');
       
       // WebRTC 초기화
       await initialize();
 
-      // 로컬 스트림 시작
+      // 로컬 스트림 시작 (callType에 따라 비디오 여부 결정)
+      print('📹 로컬 스트림 시작 - video: ${_callType == CallType.video}, audio: true');
       await _webrtcService.startLocalStream(
         video: _callType == CallType.video,
         audio: true,

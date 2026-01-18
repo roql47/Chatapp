@@ -8,6 +8,9 @@ class FriendModel {
   final String status; // 'pending', 'accepted', 'rejected'
   final DateTime createdAt;
   final bool isOnline;
+  final String? lastMessage; // 최신 메시지 내용
+  final DateTime? lastMessageTime; // 최신 메시지 시간
+  final int unreadCount; // 읽지 않은 메시지 수
 
   FriendModel({
     required this.id,
@@ -18,6 +21,9 @@ class FriendModel {
     required this.status,
     required this.createdAt,
     this.isOnline = false,
+    this.lastMessage,
+    this.lastMessageTime,
+    this.unreadCount = 0,
   });
 
   factory FriendModel.fromJson(Map<String, dynamic> json) {
@@ -33,6 +39,11 @@ class FriendModel {
           ? DateTime.parse(json['createdAt']) 
           : DateTime.now(),
       isOnline: json['isOnline'] ?? false,
+      lastMessage: json['lastMessage'],
+      lastMessageTime: json['lastMessageTime'] != null 
+          ? DateTime.parse(json['lastMessageTime']) 
+          : null,
+      unreadCount: json['unreadCount'] ?? 0,
     );
   }
 
@@ -46,6 +57,9 @@ class FriendModel {
       'status': status,
       'createdAt': createdAt.toIso8601String(),
       'isOnline': isOnline,
+      'lastMessage': lastMessage,
+      'lastMessageTime': lastMessageTime?.toIso8601String(),
+      'unreadCount': unreadCount,
     };
   }
 }

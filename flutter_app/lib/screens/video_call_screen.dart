@@ -87,7 +87,8 @@ class _VideoCallScreenState extends State<VideoCallScreen> {
   @override
   Widget build(BuildContext context) {
     final callProvider = Provider.of<CallProvider>(context);
-    final isVideoCall = widget.callType == 'video';
+    // 수신 측은 CallProvider의 callType을 사용, 발신 측은 widget.callType 사용
+    final isVideoCall = callProvider.callType == CallType.video;
 
     return Scaffold(
       backgroundColor: Colors.black,

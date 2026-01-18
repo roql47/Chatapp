@@ -33,6 +33,11 @@ class AdService {
   // AdMob 초기화
   Future<void> initialize() async {
     await MobileAds.instance.initialize();
+    
+    // 인앱결제 서비스 초기화
+    await _purchaseService.initialize();
+    print('🟢 인앱결제 서비스 초기화 완료');
+    
     await _loadAdRemovalStatus();
     print('🟢 AdMob 초기화 완료');
     
@@ -68,8 +73,13 @@ class AdService {
   // 광고 제거 구매 (실제 인앱결제)
   Future<bool> purchaseAdRemoval() async {
     try {
+      print('🔵 광고 제거 구매 시작...');
+      print('🔵 인앱결제 사용 가능: ${_purchaseService.isAvailable}');
+      print('🔵 로드된 상품 수: ${_purchaseService.availableProducts.length}');
+      
       // 인앱결제 콜백 설정
       _purchaseService.onAdRemovalSuccess = () async {
+        print('🟢 광고 제거 콜백 호출됨!');
         await _setAdRemoved(true);
       };
       
@@ -79,6 +89,7 @@ class AdService {
       
       // 실제 인앱결제 시작
       final success = await _purchaseService.buyProduct(kAdRemovalProductId);
+      print('🔵 buyProduct 결과: $success');
       return success;
     } catch (e) {
       print('🔴 광고 제거 실패: $e');

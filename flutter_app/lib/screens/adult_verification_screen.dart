@@ -95,6 +95,7 @@ class _AdultVerificationScreenState extends State<AdultVerificationScreen> {
           });
         },
         codeSent: (String verificationId, int? resendToken) {
+          print('🟢 인증번호 발송됨 - verificationId: ${verificationId.substring(0, 20)}...');
           setState(() {
             _verificationId = verificationId;
             _resendToken = resendToken;
@@ -167,6 +168,8 @@ class _AdultVerificationScreenState extends State<AdultVerificationScreen> {
     });
 
     try {
+      print('🔵 인증 시도 - verificationId: ${_verificationId?.substring(0, 20)}..., code: $code');
+      
       final credential = PhoneAuthProvider.credential(
         verificationId: _verificationId!,
         smsCode: code,
@@ -174,20 +177,22 @@ class _AdultVerificationScreenState extends State<AdultVerificationScreen> {
       
       // Firebase 인증
       await _firebaseAuth.signInWithCredential(credential);
+      print('🟢 Firebase 인증 성공!');
       
       setState(() {
         _codeVerified = true;
         _isLoading = false;
       });
     } on FirebaseAuthException catch (e) {
+      print('🔴 Firebase 인증 실패 - code: ${e.code}, message: ${e.message}');
       setState(() {
         _isLoading = false;
         if (e.code == 'invalid-verification-code') {
-          _error = '인증번호가 올바르지 않습니다.';
+          _error = '인증번호가 올바르지 않습니다. (코드: ${e.code})';
         } else if (e.code == 'session-expired') {
           _error = '인증 세션이 만료되었습니다. 다시 시도해주세요.';
         } else {
-          _error = '인증에 실패했습니다: ${e.message}';
+          _error = '인증에 실패했습니다: ${e.code} - ${e.message}';
         }
       });
     } catch (e) {

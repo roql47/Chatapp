@@ -599,22 +599,50 @@ class _PointShopScreenState extends State<PointShopScreen> {
     
     try {
       final adService = AdService();
-      final success = await adService.purchaseAdRemoval();
       
-      if (success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('광고가 제거되었습니다! 🎉'),
-            backgroundColor: Colors.green,
-          ),
-        );
-        setState(() {}); // UI 새로고침
-      }
-    } catch (e) {
+      // 구매 시작 알림
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('구매에 실패했습니다.'),
+            content: Text('구매 진행 중... 잠시만 기다려주세요.'),
+            backgroundColor: Colors.blue,
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+      
+      final success = await adService.purchaseAdRemoval();
+      
+      if (!success && mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('구매를 시작할 수 없습니다. 다시 시도해주세요.'),
+            backgroundColor: Colors.orange,
+          ),
+        );
+      }
+      
+      // 구매 완료는 콜백으로 처리되므로 잠시 대기 후 UI 갱신
+      await Future.delayed(const Duration(seconds: 3));
+      
+      if (mounted) {
+        // 광고 제거 상태 다시 확인
+        if (adService.isAdRemoved) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('광고가 제거되었습니다! 🎉'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+        setState(() {}); // UI 새로고침
+      }
+    } catch (e) {
+      print('광고 제거 구매 오류: $e');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('구매에 실패했습니다: $e'),
             backgroundColor: Colors.red,
           ),
         );

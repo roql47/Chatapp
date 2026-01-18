@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/chat_provider.dart';
 import '../config/theme.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -49,16 +50,26 @@ class _SplashScreenState extends State<SplashScreen>
     if (!mounted) return;
     
     final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    final chatProvider = Provider.of<ChatProvider>(context, listen: false);
     await authProvider.checkAuth();
     
     if (!mounted) return;
     
     switch (authProvider.state) {
       case AuthState.authenticated:
-        context.go('/home');
+        // 활성 채팅 세션이 있으면 채팅 화면으로 이동
+        if (chatProvider.hasActiveChat) {
+          print('🔄 활성 채팅 세션 발견 - 채팅 화면으로 이동');
+          context.go('/chat');
+        } else {
+          context.go('/home');
+        }
         break;
       case AuthState.needsProfile:
         context.go('/profile-setup');
+        break;
+      case AuthState.needsAdultVerification:
+        context.go('/adult-verification');
         break;
       default:
         context.go('/login');

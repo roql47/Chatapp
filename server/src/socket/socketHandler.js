@@ -491,13 +491,14 @@ const setupSocketHandlers = (io) => {
 
     // WebRTC 시그널링 - 통화 요청
     socket.on('call_offer', (data) => {
-      const { roomId, offer } = data;
+      const { roomId, offer, callType } = data;
       socket.to(roomId).emit('call_offer', {
         roomId,
         userId,
         offer,
+        callType: callType || 'video', // 통화 타입 전달 (기본값: video)
       });
-      console.log(`통화 요청: ${userId} in ${roomId}`);
+      console.log(`통화 요청: ${userId} in ${roomId} (${callType || 'video'})`);
     });
 
     // WebRTC 시그널링 - 통화 응답

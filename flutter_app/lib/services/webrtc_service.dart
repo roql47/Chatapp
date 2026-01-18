@@ -89,31 +89,58 @@ class WebRTCService {
 
     // 원격 스트림 수신
     _peerConnection?.onTrack = (event) {
-      print('🎧 원격 트랙 수신: ${event.track.kind}');
+      print('🎧 원격 트랙 수신: ${event.track.kind}, enabled: ${event.track.enabled}');
       if (event.streams.isNotEmpty) {
         _remoteStream = event.streams[0];
         remoteRenderer.srcObject = _remoteStream;
         
         // 오디오 트랙 활성화 확인
-        for (var track in _remoteStream!.getAudioTracks()) {
+        final audioTracks = _remoteStream!.getAudioTracks();
+        print('🔊 원격 오디오 트랙 수: ${audioTracks.length}');
+        for (var track in audioTracks) {
           track.enabled = true;
-          print('🔊 원격 오디오 트랙 활성화: ${track.id}');
+          print('🔊 원격 오디오 트랙 활성화: ${track.id}, enabled: ${track.enabled}');
         }
         
-        // 스피커폰 활성화
-        Helper.setSpeakerphoneOn(_isSpeakerOn);
+        // 비디오 트랙 확인
+        final videoTracks = _remoteStream!.getVideoTracks();
+        print('📹 원격 비디오 트랙 수: ${videoTracks.length}');
+        for (var track in videoTracks) {
+          print('📹 원격 비디오 트랙: ${track.id}, enabled: ${track.enabled}');
+        }
+        
+        // 스피커폰 강제 활성화
+        _isSpeakerOn = true;
+        Helper.setSpeakerphoneOn(true);
+        print('🔊 스피커폰 강제 활성화');
         
         onRemoteStream?.call(_remoteStream!);
+      } else {
+        print('⚠️ 원격 스트림이 비어있음');
       }
     };
 
     // 연결 상태 변경
     _peerConnection?.onConnectionState = (state) {
-      print('Connection state: $state');
+      print('🔗 Connection state: $state');
+      if (state == RTCPeerConnectionState.RTCPeerConnectionStateConnected) {
+        print('✅ WebRTC 연결 완료! 스피커폰 재확인');
+        Helper.setSpeakerphoneOn(true);
+      }
     };
 
     _peerConnection?.onIceConnectionState = (state) {
-      print('ICE connection state: $state');
+      print('🧊 ICE connection state: $state');
+      if (state == RTCIceConnectionState.RTCIceConnectionStateConnected) {
+        print('✅ ICE 연결 완료!');
+        // 연결 완료 시 스피커폰 재활성화
+        Helper.setSpeakerphoneOn(true);
+      }
+    };
+    
+    // 시그널링 상태 변경
+    _peerConnection?.onSignalingState = (state) {
+      print('📡 Signaling state: $state');
     };
   }
 

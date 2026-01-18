@@ -192,11 +192,12 @@ class SocketService {
   }
 
   // WebRTC 시그널링
-  void sendCallOffer(String roomId, Map<String, dynamic> offer) {
+  void sendCallOffer(String roomId, Map<String, dynamic> offer, {String callType = 'video'}) {
     _socket?.emit('call_offer', {
       'roomId': roomId,
       'userId': _userId,
       'offer': offer,
+      'callType': callType,
     });
   }
 

@@ -24,6 +24,7 @@ class AuthProvider extends ChangeNotifier {
   UserModel? get user => _user;
   String? get error => _error;
   bool get isLoggedIn => _state == AuthState.authenticated;
+  String? get token => _authService.authToken; // JWT 토큰
 
   // 자동 로그인 확인
   Future<void> checkAuth() async {
