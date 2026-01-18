@@ -82,7 +82,9 @@ class ApiService {
     if (response.statusCode >= 200 && response.statusCode < 300) {
       return body;
     } else {
-      throw Exception(body['message'] ?? '서버 오류가 발생했습니다.');
+      // 상태 코드와 메시지를 포함한 에러 메시지
+      final message = body['message'] ?? '서버 오류가 발생했습니다.';
+      throw Exception('[${response.statusCode}] $message');
     }
   }
 

@@ -517,4 +517,138 @@ router.post('/adult-verification/bypass', authMiddleware, async (req, res) => {
   }
 });
 
+// ============================================
+// 출석체크 API
+// ============================================
+
+// 출석체크 보상 (일~토: 1~7일차)
+const ATTENDANCE_REWARDS = [30, 30, 50, 30, 30, 30, 100];
+
+// 출석체크 상태 조회
+router.get('/attendance', authMiddleware, async (req, res) => {
+  try {
+    const User = require('../models/User');
+    const user = await User.findById(req.userId);
+    
+    if (!user) {
+      return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
+    }
+    
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    // 오늘 이미 출석했는지 확인
+    let checkedInToday = false;
+    if (user.attendance?.lastCheckIn) {
+      const lastCheckIn = new Date(user.attendance.lastCheckIn);
+      const lastCheckInDate = new Date(lastCheckIn.getFullYear(), lastCheckIn.getMonth(), lastCheckIn.getDate());
+      checkedInToday = lastCheckInDate.getTime() === today.getTime();
+    }
+    
+    // 현재 연속 출석일 (0-6 인덱스, 표시는 1-7일차)
+    let currentStreak = user.attendance?.currentStreak || 0;
+    
+    // 어제 출석하지 않았으면 스트릭 리셋 (오늘 첫 출석 전 확인)
+    if (!checkedInToday && user.attendance?.lastCheckIn) {
+      const lastCheckIn = new Date(user.attendance.lastCheckIn);
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const lastCheckInDate = new Date(lastCheckIn.getFullYear(), lastCheckIn.getMonth(), lastCheckIn.getDate());
+      
+      if (lastCheckInDate.getTime() < yesterday.getTime()) {
+        currentStreak = 0; // 연속 출석 끊김
+      }
+    }
+    
+    res.json({
+      currentStreak: currentStreak,
+      checkedInToday: checkedInToday,
+      rewards: ATTENDANCE_REWARDS,
+      todayReward: currentStreak < 7 ? ATTENDANCE_REWARDS[currentStreak] : ATTENDANCE_REWARDS[0],
+    });
+  } catch (error) {
+    console.error('출석체크 상태 조회 오류:', error);
+    res.status(500).json({ message: '출석체크 상태 조회에 실패했습니다.' });
+  }
+});
+
+// 출석체크 수행
+router.post('/attendance/check-in', authMiddleware, async (req, res) => {
+  try {
+    const User = require('../models/User');
+    const user = await User.findById(req.userId);
+    
+    if (!user) {
+      return res.status(404).json({ message: '사용자를 찾을 수 없습니다.' });
+    }
+    
+    const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    
+    // 오늘 이미 출석했는지 확인
+    if (user.attendance?.lastCheckIn) {
+      const lastCheckIn = new Date(user.attendance.lastCheckIn);
+      const lastCheckInDate = new Date(lastCheckIn.getFullYear(), lastCheckIn.getMonth(), lastCheckIn.getDate());
+      
+      if (lastCheckInDate.getTime() === today.getTime()) {
+        return res.status(400).json({ message: '오늘 이미 출석체크를 완료했습니다.' });
+      }
+    }
+    
+    // 현재 스트릭 계산
+    let currentStreak = user.attendance?.currentStreak || 0;
+    
+    // 어제 출석했는지 확인 (연속 출석 여부)
+    if (user.attendance?.lastCheckIn) {
+      const lastCheckIn = new Date(user.attendance.lastCheckIn);
+      const yesterday = new Date(today);
+      yesterday.setDate(yesterday.getDate() - 1);
+      const lastCheckInDate = new Date(lastCheckIn.getFullYear(), lastCheckIn.getMonth(), lastCheckIn.getDate());
+      
+      if (lastCheckInDate.getTime() === yesterday.getTime()) {
+        // 연속 출석
+        currentStreak = (currentStreak % 7) + 1; // 1-7 순환
+      } else {
+        // 연속 출석 끊김, 1일차부터 시작
+        currentStreak = 1;
+      }
+    } else {
+      // 첫 출석
+      currentStreak = 1;
+    }
+    
+    // 보상 포인트 계산 (인덱스는 0-6)
+    const rewardIndex = currentStreak - 1;
+    const rewardPoints = ATTENDANCE_REWARDS[rewardIndex];
+    
+    // 포인트 지급 및 출석 정보 업데이트
+    user.points += rewardPoints;
+    user.pointHistory.push({
+      type: 'bonus',
+      amount: rewardPoints,
+      description: `출석체크 ${currentStreak}일차 보상`,
+      createdAt: now,
+    });
+    
+    user.attendance = {
+      lastCheckIn: now,
+      currentStreak: currentStreak,
+      weekStartDate: currentStreak === 1 ? today : (user.attendance?.weekStartDate || today),
+    };
+    
+    await user.save();
+    
+    res.json({
+      message: `출석체크 완료! ${rewardPoints}P 획득!`,
+      currentStreak: currentStreak,
+      rewardPoints: rewardPoints,
+      totalPoints: user.points,
+      isWeekComplete: currentStreak === 7,
+    });
+  } catch (error) {
+    console.error('출석체크 오류:', error);
+    res.status(500).json({ message: '출석체크에 실패했습니다.' });
+  }
+});
+
 module.exports = router;

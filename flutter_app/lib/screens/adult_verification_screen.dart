@@ -205,12 +205,12 @@ class _AdultVerificationScreenState extends State<AdultVerificationScreen> {
       return;
     }
 
-    // 만 19세 이상인지 확인
+    // 만 19세 이상인지 확인 (클라이언트 측 1차 검증)
     final currentYear = DateTime.now().year;
     final age = currentYear - _selectedBirthYear!;
     
     if (age < 19) {
-      setState(() => _error = '만 19세 이상만 이용 가능합니다. (현재 $age세)');
+      setState(() => _error = '만 19세 이상만 이용 가능합니다. (현재 만 $age세)');
       return;
     }
 
@@ -221,30 +221,56 @@ class _AdultVerificationScreenState extends State<AdultVerificationScreen> {
 
     try {
       // 서버에 성인인증 완료 요청
-      await _apiService.post('/api/auth/adult-verification/firebase', {
+      final response = await _apiService.post('/api/auth/adult-verification/firebase', {
         'phone': _phoneController.text.trim(),
         'birthYear': _selectedBirthYear,
         'firebaseUid': _firebaseAuth.currentUser?.uid,
       });
-    } catch (e) {
-      print('서버 인증 실패 (로컬 저장): $e');
-      // 서버 연결 실패 시 로컬에 저장
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setBool('adult_verified', true);
-      await prefs.setInt('adult_birth_year', _selectedBirthYear!);
-    }
-
-    if (mounted) {
-      // AuthProvider 상태 업데이트
-      Provider.of<app_auth.AuthProvider>(context, listen: false).onAdultVerificationComplete();
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('성인인증이 완료되었습니다!'),
-          backgroundColor: Colors.green,
-        ),
-      );
-      context.go('/home');
+      // 서버 응답 확인
+      if (response['isVerified'] == true) {
+        if (mounted) {
+          Provider.of<app_auth.AuthProvider>(context, listen: false).onAdultVerificationComplete();
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('성인인증이 완료되었습니다!'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          context.go('/home');
+        }
+      } else {
+        setState(() {
+          _isLoading = false;
+          _error = response['message'] ?? '성인인증에 실패했습니다.';
+        });
+      }
+    } catch (e) {
+      print('서버 인증 오류: $e');
+      final errorMessage = e.toString();
+      
+      // 서버에서 명시적으로 거부한 경우 (19세 미만, 중복 전화번호 등)
+      if (errorMessage.contains('403') || errorMessage.contains('19세')) {
+        setState(() {
+          _isLoading = false;
+          _error = '만 19세 이상만 이용 가능합니다.';
+        });
+        return;
+      }
+      
+      if (errorMessage.contains('409') || errorMessage.contains('다른 계정')) {
+        setState(() {
+          _isLoading = false;
+          _error = '이미 다른 계정에서 인증된 전화번호입니다.';
+        });
+        return;
+      }
+      
+      // 네트워크 오류 등 서버 연결 실패 시에만 에러 표시
+      setState(() {
+        _isLoading = false;
+        _error = '서버 연결에 실패했습니다. 잠시 후 다시 시도해주세요.';
+      });
     }
   }
 

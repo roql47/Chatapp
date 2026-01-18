@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../providers/auth_provider.dart';
+import '../providers/theme_provider.dart';
 import '../config/theme.dart';
 import '../services/ad_service.dart';
 
@@ -102,18 +103,19 @@ class _PointShopScreenState extends State<PointShopScreen> {
   @override
   Widget build(BuildContext context) {
     final authProvider = Provider.of<AuthProvider>(context);
+    final themeProvider = Provider.of<ThemeProvider>(context);
     final user = authProvider.user;
+    final isDark = themeProvider.isDarkMode;
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [
-              AppTheme.darkBackground,
-              AppTheme.darkSurface,
-            ],
+            colors: isDark
+                ? [AppTheme.darkBackground, AppTheme.darkSurface]
+                : [AppTheme.lightBackground, Colors.white],
           ),
         ),
         child: SafeArea(
@@ -126,14 +128,15 @@ class _PointShopScreenState extends State<PointShopScreen> {
                   children: [
                     IconButton(
                       onPressed: () => context.pop(),
-                      icon: const Icon(Icons.arrow_back, color: Colors.white70),
+                      icon: Icon(Icons.arrow_back, 
+                        color: isDark ? Colors.white70 : Colors.black54),
                     ),
-                    const Expanded(
+                    Expanded(
                       child: Text(
                         '포인트 충전',
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                          color: Colors.white,
+                          color: isDark ? Colors.white : Colors.black87,
                           fontSize: 18,
                           fontWeight: FontWeight.w600,
                         ),
@@ -150,16 +153,16 @@ class _PointShopScreenState extends State<PointShopScreen> {
                   child: Column(
                     children: [
                       // 현재 포인트 표시
-                      _buildCurrentPoints(user?.points ?? 0),
+                      _buildCurrentPoints(user?.points ?? 0, isDark),
                       const SizedBox(height: 24),
                       
                       // 포인트 패키지
-                      const Align(
+                      Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
                           '포인트 패키지',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: isDark ? Colors.white : Colors.black87,
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
@@ -167,17 +170,17 @@ class _PointShopScreenState extends State<PointShopScreen> {
                       ),
                       const SizedBox(height: 16),
                       
-                      ..._packages.map((pkg) => _buildPackageCard(pkg)),
+                      ..._packages.map((pkg) => _buildPackageCard(pkg, isDark)),
                       
                       const SizedBox(height: 32),
                       
                       // 광고 제거 패키지
-                      const Align(
+                      Align(
                         alignment: Alignment.centerLeft,
                         child: Text(
                           '광고 제거',
                           style: TextStyle(
-                            color: Colors.white,
+                            color: isDark ? Colors.white : Colors.black87,
                             fontSize: 18,
                             fontWeight: FontWeight.bold,
                           ),
@@ -185,12 +188,12 @@ class _PointShopScreenState extends State<PointShopScreen> {
                       ),
                       const SizedBox(height: 16),
                       
-                      _buildAdRemovalCard(),
+                      _buildAdRemovalCard(isDark),
                       
                       const SizedBox(height: 24),
                       
                       // 포인트 사용 안내
-                      _buildPointsInfo(),
+                      _buildPointsInfo(isDark),
                     ],
                   ),
                 ),
@@ -202,14 +205,14 @@ class _PointShopScreenState extends State<PointShopScreen> {
     );
   }
 
-  Widget _buildCurrentPoints(int points) {
+  Widget _buildCurrentPoints(int points, bool isDark) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [
-            AppTheme.primaryColor.withOpacity(0.3),
-            AppTheme.secondaryColor.withOpacity(0.3),
+            AppTheme.primaryColor.withOpacity(isDark ? 0.3 : 0.2),
+            AppTheme.secondaryColor.withOpacity(isDark ? 0.3 : 0.2),
           ],
         ),
         borderRadius: BorderRadius.circular(20),
@@ -224,10 +227,10 @@ class _PointShopScreenState extends State<PointShopScreen> {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text(
+              Text(
                 '보유 포인트',
                 style: TextStyle(
-                  color: Colors.white70,
+                  color: isDark ? Colors.white70 : Colors.black54,
                   fontSize: 14,
                 ),
               ),
@@ -242,8 +245,8 @@ class _PointShopScreenState extends State<PointShopScreen> {
                   const SizedBox(width: 8),
                   Text(
                     '$points P',
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: isDark ? Colors.white : Colors.black87,
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
                     ),
@@ -277,14 +280,21 @@ class _PointShopScreenState extends State<PointShopScreen> {
     );
   }
 
-  Widget _buildPackageCard(Map<String, dynamic> package) {
+  Widget _buildPackageCard(Map<String, dynamic> package, bool isDark) {
     final hasBonus = package['bonus'] > 0;
 
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       decoration: BoxDecoration(
-        color: AppTheme.darkCard,
+        color: isDark ? AppTheme.darkCard : Colors.white,
         borderRadius: BorderRadius.circular(16),
+        boxShadow: isDark ? null : [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -315,8 +325,8 @@ class _PointShopScreenState extends State<PointShopScreen> {
                     children: [
                       Text(
                         '${package['points']}P',
-                        style: const TextStyle(
-                          color: Colors.white,
+                        style: TextStyle(
+                          color: isDark ? Colors.white : Colors.black87,
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
                         ),
@@ -349,8 +359,8 @@ class _PointShopScreenState extends State<PointShopScreen> {
                     hasBonus
                         ? '총 ${package['points'] + package['bonus']}P'
                         : '',
-                    style: const TextStyle(
-                      color: Colors.white60,
+                    style: TextStyle(
+                      color: isDark ? Colors.white60 : Colors.black45,
                       fontSize: 12,
                     ),
                   ),
@@ -362,7 +372,8 @@ class _PointShopScreenState extends State<PointShopScreen> {
             ElevatedButton(
               onPressed: _isLoading ? null : () => _purchasePoints(package),
               style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.darkSurface,
+                backgroundColor: isDark ? AppTheme.darkSurface : AppTheme.primaryColor,
+                foregroundColor: Colors.white,
                 padding: const EdgeInsets.symmetric(
                   horizontal: 20,
                   vertical: 12,
@@ -390,7 +401,7 @@ class _PointShopScreenState extends State<PointShopScreen> {
     );
   }
 
-  Widget _buildAdRemovalCard() {
+  Widget _buildAdRemovalCard(bool isDark) {
     final adService = AdService();
     final isAdRemoved = adService.isAdRemoved;
     
@@ -400,15 +411,22 @@ class _PointShopScreenState extends State<PointShopScreen> {
             ? null
             : LinearGradient(
                 colors: [
-                  Colors.purple.withOpacity(0.3),
-                  Colors.blue.withOpacity(0.3),
+                  Colors.purple.withOpacity(isDark ? 0.3 : 0.15),
+                  Colors.blue.withOpacity(isDark ? 0.3 : 0.15),
                 ],
               ),
-        color: isAdRemoved ? AppTheme.darkCard : null,
+        color: isAdRemoved ? (isDark ? AppTheme.darkCard : Colors.white) : null,
         borderRadius: BorderRadius.circular(16),
         border: isAdRemoved
             ? null
             : Border.all(color: Colors.purple.withOpacity(0.5), width: 2),
+        boxShadow: isDark ? null : [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -439,8 +457,8 @@ class _PointShopScreenState extends State<PointShopScreen> {
                 children: [
                   Text(
                     isAdRemoved ? '광고 제거됨' : '광고 제거',
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: isDark ? Colors.white : Colors.black87,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
@@ -450,8 +468,8 @@ class _PointShopScreenState extends State<PointShopScreen> {
                     isAdRemoved
                         ? '모든 광고가 제거되었습니다'
                         : '영구적으로 모든 광고 제거',
-                    style: const TextStyle(
-                      color: Colors.white60,
+                    style: TextStyle(
+                      color: isDark ? Colors.white60 : Colors.black45,
                       fontSize: 13,
                     ),
                   ),
@@ -483,6 +501,7 @@ class _PointShopScreenState extends State<PointShopScreen> {
                         '₩4,400',
                         style: TextStyle(
                           fontWeight: FontWeight.bold,
+                          color: Colors.white,
                         ),
                       ),
               )
@@ -545,30 +564,37 @@ class _PointShopScreenState extends State<PointShopScreen> {
     }
   }
 
-  Widget _buildPointsInfo() {
+  Widget _buildPointsInfo(bool isDark) {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.darkCard,
+        color: isDark ? AppTheme.darkCard : Colors.white,
         borderRadius: BorderRadius.circular(12),
+        boxShadow: isDark ? null : [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
-        children: const [
+        children: [
           Text(
             '포인트 사용 안내',
             style: TextStyle(
-              color: Colors.white,
+              color: isDark ? Colors.white : Colors.black87,
               fontSize: 16,
               fontWeight: FontWeight.bold,
             ),
           ),
-          SizedBox(height: 12),
-          _InfoRow(icon: Icons.filter_alt, text: '성별 필터 매칭: 10P'),
-          SizedBox(height: 8),
-          _InfoRow(icon: Icons.card_giftcard, text: '신규 가입 보너스: 100P'),
-          SizedBox(height: 8),
-          _InfoRow(icon: Icons.info_outline, text: '포인트는 환불되지 않습니다'),
+          const SizedBox(height: 12),
+          _InfoRow(icon: Icons.filter_alt, text: '성별 필터 매칭: 10P', isDark: isDark),
+          const SizedBox(height: 8),
+          _InfoRow(icon: Icons.card_giftcard, text: '신규 가입 보너스: 100P', isDark: isDark),
+          const SizedBox(height: 8),
+          _InfoRow(icon: Icons.info_outline, text: '포인트는 환불되지 않습니다', isDark: isDark),
         ],
       ),
     );
@@ -578,19 +604,20 @@ class _PointShopScreenState extends State<PointShopScreen> {
 class _InfoRow extends StatelessWidget {
   final IconData icon;
   final String text;
+  final bool isDark;
 
-  const _InfoRow({required this.icon, required this.text});
+  const _InfoRow({required this.icon, required this.text, required this.isDark});
 
   @override
   Widget build(BuildContext context) {
     return Row(
       children: [
-        Icon(icon, color: Colors.white38, size: 18),
+        Icon(icon, color: isDark ? Colors.white38 : Colors.black38, size: 18),
         const SizedBox(width: 8),
         Text(
           text,
-          style: const TextStyle(
-            color: Colors.white60,
+          style: TextStyle(
+            color: isDark ? Colors.white60 : Colors.black54,
             fontSize: 14,
           ),
         ),

@@ -165,38 +165,6 @@ class _LoginScreenState extends State<LoginScreen>
             height: 1.5,
           ),
         ),
-        const SizedBox(height: 40),
-        // 기능 아이콘들
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-          children: [
-            _buildFeatureIcon(Icons.message, '텍스트 채팅'),
-            _buildFeatureIcon(Icons.image, '이미지 공유'),
-            _buildFeatureIcon(Icons.videocam, '영상 통화'),
-          ],
-        ),
-      ],
-    );
-  }
-
-  Widget _buildFeatureIcon(IconData icon, String label) {
-    return Column(
-      children: [
-        Container(
-          padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: AppTheme.darkCard.withOpacity(0.5),
-            borderRadius: BorderRadius.circular(16),
-          ),
-          child: Icon(icon, color: AppTheme.primaryColor, size: 28),
-        ),
-        const SizedBox(height: 8),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.bodySmall?.copyWith(
-            color: Colors.white60,
-          ),
-        ),
       ],
     );
   }

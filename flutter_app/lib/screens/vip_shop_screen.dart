@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../config/theme.dart';
 import '../services/api_service.dart';
 import '../providers/auth_provider.dart';
+import '../providers/theme_provider.dart';
 
 class VipShopScreen extends StatefulWidget {
   const VipShopScreen({super.key});
@@ -42,7 +43,7 @@ class _VipShopScreenState extends State<VipShopScreen> {
     }
   }
 
-  Future<void> _purchaseVip(String tier) async {
+  Future<void> _purchaseVip(String tier, bool isDark) async {
     final tierInfo = _tiers.firstWhere((t) => t['id'] == tier);
     final userPoints = _vipStatus?['points'] ?? 0;
 
@@ -57,11 +58,12 @@ class _VipShopScreenState extends State<VipShopScreen> {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.darkCard,
-        title: Text('VIP ${tierInfo['name']} 구매', style: const TextStyle(color: Colors.white)),
+        backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
+        title: Text('VIP ${tierInfo['name']} 구매', 
+          style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
         content: Text(
           '${tierInfo['price']}P를 사용하여 VIP ${tierInfo['name']}을(를) 구매하시겠습니까?\n\n유효기간: ${tierInfo['duration']}일',
-          style: const TextStyle(color: Colors.white70),
+          style: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
         ),
         actions: [
           TextButton(
@@ -71,7 +73,7 @@ class _VipShopScreenState extends State<VipShopScreen> {
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(backgroundColor: _getTierColor(tier)),
-            child: const Text('구매'),
+            child: const Text('구매', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -127,15 +129,19 @@ class _VipShopScreenState extends State<VipShopScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
+    
     return Scaffold(
-      backgroundColor: AppTheme.darkBackground,
+      backgroundColor: isDark ? AppTheme.darkBackground : AppTheme.lightBackground,
       appBar: AppBar(
-        backgroundColor: AppTheme.darkSurface,
+        backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
+        elevation: isDark ? 0 : 1,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white70),
+          icon: Icon(Icons.arrow_back, color: isDark ? Colors.white70 : Colors.black54),
           onPressed: () => context.pop(),
         ),
-        title: const Text('VIP 멤버십', style: TextStyle(color: Colors.white)),
+        title: Text('VIP 멤버십', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
@@ -145,27 +151,27 @@ class _VipShopScreenState extends State<VipShopScreen> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   // 현재 VIP 상태
-                  _buildCurrentStatus(),
+                  _buildCurrentStatus(isDark),
                   const SizedBox(height: 24),
 
                   // VIP 티어 목록
-                  const Text(
+                  Text(
                     'VIP 멤버십',
                     style: TextStyle(
-                      color: Colors.white,
+                      color: isDark ? Colors.white : Colors.black87,
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
                     ),
                   ),
                   const SizedBox(height: 16),
-                  ..._tiers.map((tier) => _buildTierCard(tier)),
+                  ..._tiers.map((tier) => _buildTierCard(tier, isDark)),
                 ],
               ),
             ),
     );
   }
 
-  Widget _buildCurrentStatus() {
+  Widget _buildCurrentStatus(bool isDark) {
     final isVip = _vipStatus?['isVip'] ?? false;
     final tier = _vipStatus?['tier'] ?? 'none';
     final daysRemaining = _vipStatus?['daysRemaining'] ?? 0;
@@ -178,13 +184,20 @@ class _VipShopScreenState extends State<VipShopScreen> {
             ? LinearGradient(
                 colors: [
                   _getTierColor(tier).withOpacity(0.3),
-                  AppTheme.darkCard,
+                  isDark ? AppTheme.darkCard : Colors.white,
                 ],
               )
             : null,
-        color: isVip ? null : AppTheme.darkCard,
+        color: isVip ? null : (isDark ? AppTheme.darkCard : Colors.white),
         borderRadius: BorderRadius.circular(16),
         border: isVip ? Border.all(color: _getTierColor(tier), width: 2) : null,
+        boxShadow: isDark ? null : [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -192,7 +205,7 @@ class _VipShopScreenState extends State<VipShopScreen> {
             children: [
               Icon(
                 isVip ? _getTierIcon(tier) : Icons.person,
-                color: isVip ? _getTierColor(tier) : Colors.white60,
+                color: isVip ? _getTierColor(tier) : (isDark ? Colors.white60 : Colors.black45),
                 size: 40,
               ),
               const SizedBox(width: 16),
@@ -203,7 +216,7 @@ class _VipShopScreenState extends State<VipShopScreen> {
                     Text(
                       isVip ? 'VIP ${_vipStatus?['tierInfo']?['name'] ?? tier.toUpperCase()}' : '일반 회원',
                       style: TextStyle(
-                        color: isVip ? _getTierColor(tier) : Colors.white,
+                        color: isVip ? _getTierColor(tier) : (isDark ? Colors.white : Colors.black87),
                         fontSize: 20,
                         fontWeight: FontWeight.bold,
                       ),
@@ -211,7 +224,7 @@ class _VipShopScreenState extends State<VipShopScreen> {
                     if (isVip)
                       Text(
                         '$daysRemaining일 남음',
-                        style: const TextStyle(color: Colors.white60, fontSize: 14),
+                        style: TextStyle(color: isDark ? Colors.white60 : Colors.black45, fontSize: 14),
                       ),
                   ],
                 ),
@@ -240,9 +253,9 @@ class _VipShopScreenState extends State<VipShopScreen> {
           ),
           if (!isVip) ...[
             const SizedBox(height: 16),
-            const Text(
+            Text(
               'VIP가 되어 더 많은 혜택을 누려보세요!',
-              style: TextStyle(color: Colors.white60, fontSize: 14),
+              style: TextStyle(color: isDark ? Colors.white60 : Colors.black45, fontSize: 14),
             ),
           ],
         ],
@@ -250,7 +263,7 @@ class _VipShopScreenState extends State<VipShopScreen> {
     );
   }
 
-  Widget _buildTierCard(Map<String, dynamic> tier) {
+  Widget _buildTierCard(Map<String, dynamic> tier, bool isDark) {
     final tierId = tier['id'] as String;
     final name = tier['name'] as String;
     final price = tier['price'] as int;
@@ -261,11 +274,18 @@ class _VipShopScreenState extends State<VipShopScreen> {
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
       decoration: BoxDecoration(
-        color: AppTheme.darkCard,
+        color: isDark ? AppTheme.darkCard : Colors.white,
         borderRadius: BorderRadius.circular(16),
         border: isCurrentTier
             ? Border.all(color: _getTierColor(tierId), width: 2)
             : null,
+        boxShadow: isDark ? null : [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Column(
         children: [
@@ -273,7 +293,7 @@ class _VipShopScreenState extends State<VipShopScreen> {
           Container(
             padding: const EdgeInsets.all(16),
             decoration: BoxDecoration(
-              color: _getTierColor(tierId).withOpacity(0.2),
+              color: _getTierColor(tierId).withOpacity(isDark ? 0.2 : 0.15),
               borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
             ),
             child: Row(
@@ -294,7 +314,7 @@ class _VipShopScreenState extends State<VipShopScreen> {
                       ),
                       Text(
                         '$duration일',
-                        style: const TextStyle(color: Colors.white60, fontSize: 12),
+                        style: TextStyle(color: isDark ? Colors.white60 : Colors.black45, fontSize: 12),
                       ),
                     ],
                   ),
@@ -325,7 +345,10 @@ class _VipShopScreenState extends State<VipShopScreen> {
                           Expanded(
                             child: Text(
                               benefit,
-                              style: const TextStyle(color: Colors.white70, fontSize: 14),
+                              style: TextStyle(
+                                color: isDark ? Colors.white70 : Colors.black54, 
+                                fontSize: 14,
+                              ),
                             ),
                           ),
                         ],
@@ -339,14 +362,14 @@ class _VipShopScreenState extends State<VipShopScreen> {
                   child: ElevatedButton(
                     onPressed: _isPurchasing || isCurrentTier
                         ? null
-                        : () => _purchaseVip(tierId),
+                        : () => _purchaseVip(tierId, isDark),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: _getTierColor(tierId),
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
                     child: Text(
                       isCurrentTier ? '현재 사용 중' : '구매하기',
-                      style: const TextStyle(fontWeight: FontWeight.bold),
+                      style: const TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
                     ),
                   ),
                 ),

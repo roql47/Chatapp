@@ -5,6 +5,7 @@ import '../config/theme.dart';
 import '../services/api_service.dart';
 import '../models/friend_model.dart';
 import '../providers/auth_provider.dart';
+import '../providers/theme_provider.dart';
 
 class FriendsScreen extends StatefulWidget {
   const FriendsScreen({super.key});
@@ -94,14 +95,14 @@ class _FriendsScreenState extends State<FriendsScreen>
     }
   }
 
-  Future<void> _deleteFriend(String friendId) async {
+  Future<void> _deleteFriend(String friendId, bool isDark) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.darkCard,
-        title: const Text('친구 삭제', style: TextStyle(color: Colors.white)),
-        content: const Text('정말 친구를 삭제하시겠습니까?',
-            style: TextStyle(color: Colors.white70)),
+        backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
+        title: Text('친구 삭제', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
+        content: Text('정말 친구를 삭제하시겠습니까?',
+            style: TextStyle(color: isDark ? Colors.white70 : Colors.black54)),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(context, false),
@@ -110,7 +111,7 @@ class _FriendsScreenState extends State<FriendsScreen>
           ElevatedButton(
             onPressed: () => Navigator.pop(context, true),
             style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
-            child: const Text('삭제'),
+            child: const Text('삭제', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -166,20 +167,24 @@ class _FriendsScreenState extends State<FriendsScreen>
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
+    
     return Scaffold(
-      backgroundColor: AppTheme.darkBackground,
+      backgroundColor: isDark ? AppTheme.darkBackground : AppTheme.lightBackground,
       appBar: AppBar(
-        backgroundColor: AppTheme.darkSurface,
+        backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
+        elevation: isDark ? 0 : 1,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white70),
+          icon: Icon(Icons.arrow_back, color: isDark ? Colors.white70 : Colors.black54),
           onPressed: () => context.pop(),
         ),
-        title: const Text('친구', style: TextStyle(color: Colors.white)),
+        title: Text('친구', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
         bottom: TabBar(
           controller: _tabController,
           indicatorColor: AppTheme.primaryColor,
           labelColor: AppTheme.primaryColor,
-          unselectedLabelColor: Colors.white60,
+          unselectedLabelColor: isDark ? Colors.white60 : Colors.black45,
           tabs: [
             Tab(text: '친구 ${_friends.length}'),
             Tab(text: '받은 요청 ${_receivedRequests.length}'),
@@ -192,20 +197,21 @@ class _FriendsScreenState extends State<FriendsScreen>
           : TabBarView(
               controller: _tabController,
               children: [
-                _buildFriendsList(),
-                _buildReceivedRequestsList(),
-                _buildSentRequestsList(),
+                _buildFriendsList(isDark),
+                _buildReceivedRequestsList(isDark),
+                _buildSentRequestsList(isDark),
               ],
             ),
     );
   }
 
-  Widget _buildFriendsList() {
+  Widget _buildFriendsList(bool isDark) {
     if (_friends.isEmpty) {
       return _buildEmptyState(
         icon: Icons.people_outline,
         title: '아직 친구가 없어요',
         subtitle: '채팅에서 마음이 맞는 상대에게\n친구 요청을 보내보세요!',
+        isDark: isDark,
       );
     }
 
@@ -214,17 +220,18 @@ class _FriendsScreenState extends State<FriendsScreen>
       child: ListView.builder(
         padding: const EdgeInsets.all(16),
         itemCount: _friends.length,
-        itemBuilder: (context, index) => _buildFriendTile(_friends[index]),
+        itemBuilder: (context, index) => _buildFriendTile(_friends[index], isDark),
       ),
     );
   }
 
-  Widget _buildReceivedRequestsList() {
+  Widget _buildReceivedRequestsList(bool isDark) {
     if (_receivedRequests.isEmpty) {
       return _buildEmptyState(
         icon: Icons.mail_outline,
         title: '받은 친구 요청이 없어요',
         subtitle: '새로운 친구 요청이 오면 여기에 표시됩니다.',
+        isDark: isDark,
       );
     }
 
@@ -234,17 +241,18 @@ class _FriendsScreenState extends State<FriendsScreen>
         padding: const EdgeInsets.all(16),
         itemCount: _receivedRequests.length,
         itemBuilder: (context, index) =>
-            _buildReceivedRequestTile(_receivedRequests[index]),
+            _buildReceivedRequestTile(_receivedRequests[index], isDark),
       ),
     );
   }
 
-  Widget _buildSentRequestsList() {
+  Widget _buildSentRequestsList(bool isDark) {
     if (_sentRequests.isEmpty) {
       return _buildEmptyState(
         icon: Icons.send,
         title: '보낸 친구 요청이 없어요',
         subtitle: '채팅에서 친구 요청을 보내면\n여기에 표시됩니다.',
+        isDark: isDark,
       );
     }
 
@@ -254,7 +262,7 @@ class _FriendsScreenState extends State<FriendsScreen>
         padding: const EdgeInsets.all(16),
         itemCount: _sentRequests.length,
         itemBuilder: (context, index) =>
-            _buildSentRequestTile(_sentRequests[index]),
+            _buildSentRequestTile(_sentRequests[index], isDark),
       ),
     );
   }
@@ -263,37 +271,45 @@ class _FriendsScreenState extends State<FriendsScreen>
     required IconData icon,
     required String title,
     required String subtitle,
+    required bool isDark,
   }) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(icon, size: 64, color: Colors.white24),
+          Icon(icon, size: 64, color: isDark ? Colors.white24 : Colors.black26),
           const SizedBox(height: 16),
           Text(
             title,
-            style: const TextStyle(color: Colors.white60, fontSize: 16),
+            style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 16),
           ),
           const SizedBox(height: 8),
           Text(
             subtitle,
             textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.white38, fontSize: 14),
+            style: TextStyle(color: isDark ? Colors.white38 : Colors.black38, fontSize: 14),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildFriendTile(FriendModel friend) {
+  Widget _buildFriendTile(FriendModel friend, bool isDark) {
     return GestureDetector(
       onTap: () => _startDM(friend),
       child: Container(
         margin: const EdgeInsets.only(bottom: 12),
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: AppTheme.darkCard,
+          color: isDark ? AppTheme.darkCard : Colors.white,
           borderRadius: BorderRadius.circular(12),
+          boxShadow: isDark ? null : [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 10,
+              offset: const Offset(0, 2),
+            ),
+          ],
         ),
         child: Row(
           children: [
@@ -320,7 +336,10 @@ class _FriendsScreenState extends State<FriendsScreen>
                       decoration: BoxDecoration(
                         color: Colors.green,
                         shape: BoxShape.circle,
-                        border: Border.all(color: AppTheme.darkCard, width: 2),
+                        border: Border.all(
+                          color: isDark ? AppTheme.darkCard : Colors.white, 
+                          width: 2,
+                        ),
                       ),
                     ),
                   ),
@@ -334,8 +353,8 @@ class _FriendsScreenState extends State<FriendsScreen>
                 children: [
                   Text(
                     friend.nickname,
-                    style: const TextStyle(
-                      color: Colors.white,
+                    style: TextStyle(
+                      color: isDark ? Colors.white : Colors.black87,
                       fontSize: 16,
                       fontWeight: FontWeight.w500,
                     ),
@@ -344,7 +363,7 @@ class _FriendsScreenState extends State<FriendsScreen>
                   Text(
                     friend.isOnline ? '온라인' : '오프라인',
                     style: TextStyle(
-                      color: friend.isOnline ? Colors.green : Colors.white38,
+                      color: friend.isOnline ? Colors.green : (isDark ? Colors.white38 : Colors.black38),
                       fontSize: 12,
                     ),
                   ),
@@ -359,11 +378,11 @@ class _FriendsScreenState extends State<FriendsScreen>
             ),
             // 더보기 버튼
             PopupMenuButton<String>(
-              icon: const Icon(Icons.more_vert, color: Colors.white38),
-              color: AppTheme.darkCard,
+              icon: Icon(Icons.more_vert, color: isDark ? Colors.white38 : Colors.black38),
+              color: isDark ? AppTheme.darkCard : Colors.white,
               onSelected: (value) {
                 if (value == 'delete') {
-                  _deleteFriend(friend.id);
+                  _deleteFriend(friend.id, isDark);
                 }
               },
               itemBuilder: (context) => [
@@ -385,13 +404,20 @@ class _FriendsScreenState extends State<FriendsScreen>
     );
   }
 
-  Widget _buildReceivedRequestTile(FriendModel request) {
+  Widget _buildReceivedRequestTile(FriendModel request, bool isDark) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.darkCard,
+        color: isDark ? AppTheme.darkCard : Colors.white,
         borderRadius: BorderRadius.circular(12),
+        boxShadow: isDark ? null : [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -409,8 +435,8 @@ class _FriendsScreenState extends State<FriendsScreen>
           Expanded(
             child: Text(
               request.nickname,
-              style: const TextStyle(
-                color: Colors.white,
+              style: TextStyle(
+                color: isDark ? Colors.white : Colors.black87,
                 fontSize: 16,
                 fontWeight: FontWeight.w500,
               ),
@@ -434,13 +460,20 @@ class _FriendsScreenState extends State<FriendsScreen>
     );
   }
 
-  Widget _buildSentRequestTile(FriendModel request) {
+  Widget _buildSentRequestTile(FriendModel request, bool isDark) {
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.darkCard,
+        color: isDark ? AppTheme.darkCard : Colors.white,
         borderRadius: BorderRadius.circular(12),
+        boxShadow: isDark ? null : [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -461,8 +494,8 @@ class _FriendsScreenState extends State<FriendsScreen>
               children: [
                 Text(
                   request.nickname,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: isDark ? Colors.white : Colors.black87,
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
                   ),

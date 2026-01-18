@@ -222,4 +222,11 @@ class AuthProvider extends ChangeNotifier {
       notifyListeners();
     }
   }
+
+  // 사용자 정보 새로고침
+  Future<void> refreshUser() async {
+    final points = await _authService.getPoints();
+    _user = _authService.currentUser;
+    notifyListeners();
+  }
 }

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../config/theme.dart';
 import '../services/api_service.dart';
+import '../providers/theme_provider.dart';
 
 class BlockedUsersScreen extends StatefulWidget {
   const BlockedUsersScreen({super.key});
@@ -37,15 +39,15 @@ class _BlockedUsersScreenState extends State<BlockedUsersScreen> {
     }
   }
 
-  Future<void> _unblockUser(String userId, String nickname) async {
+  Future<void> _unblockUser(String userId, String nickname, bool isDark) async {
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        backgroundColor: AppTheme.darkCard,
-        title: const Text('차단 해제', style: TextStyle(color: Colors.white)),
+        backgroundColor: isDark ? AppTheme.darkCard : Colors.white,
+        title: Text('차단 해제', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
         content: Text(
           '$nickname님의 차단을 해제하시겠습니까?\n\n해제 후 다시 매칭될 수 있습니다.',
-          style: const TextStyle(color: Colors.white70),
+          style: TextStyle(color: isDark ? Colors.white70 : Colors.black54),
         ),
         actions: [
           TextButton(
@@ -57,7 +59,7 @@ class _BlockedUsersScreenState extends State<BlockedUsersScreen> {
             style: ElevatedButton.styleFrom(
               backgroundColor: AppTheme.primaryColor,
             ),
-            child: const Text('해제'),
+            child: const Text('해제', style: TextStyle(color: Colors.white)),
           ),
         ],
       ),
@@ -86,47 +88,51 @@ class _BlockedUsersScreenState extends State<BlockedUsersScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
+    
     return Scaffold(
-      backgroundColor: AppTheme.darkBackground,
+      backgroundColor: isDark ? AppTheme.darkBackground : AppTheme.lightBackground,
       appBar: AppBar(
-        backgroundColor: AppTheme.darkSurface,
+        backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
+        elevation: isDark ? 0 : 1,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white70),
+          icon: Icon(Icons.arrow_back, color: isDark ? Colors.white70 : Colors.black54),
           onPressed: () => context.pop(),
         ),
-        title: const Text('차단된 사용자', style: TextStyle(color: Colors.white)),
+        title: Text('차단된 사용자', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : _blockedUsers.isEmpty
-              ? _buildEmptyState()
-              : _buildBlockedList(),
+              ? _buildEmptyState(isDark)
+              : _buildBlockedList(isDark),
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(bool isDark) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.block, size: 64, color: Colors.white24),
+          Icon(Icons.block, size: 64, color: isDark ? Colors.white24 : Colors.black26),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             '차단된 사용자가 없습니다',
-            style: TextStyle(color: Colors.white60, fontSize: 16),
+            style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 16),
           ),
           const SizedBox(height: 8),
-          const Text(
+          Text(
             '채팅에서 불쾌한 상대를 차단하면\n여기에서 관리할 수 있어요.',
             textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white38, fontSize: 14),
+            style: TextStyle(color: isDark ? Colors.white38 : Colors.black38, fontSize: 14),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildBlockedList() {
+  Widget _buildBlockedList(bool isDark) {
     return RefreshIndicator(
       onRefresh: _loadBlockedUsers,
       child: ListView.builder(
@@ -134,13 +140,13 @@ class _BlockedUsersScreenState extends State<BlockedUsersScreen> {
         itemCount: _blockedUsers.length,
         itemBuilder: (context, index) {
           final user = _blockedUsers[index];
-          return _buildBlockedUserTile(user);
+          return _buildBlockedUserTile(user, isDark);
         },
       ),
     );
   }
 
-  Widget _buildBlockedUserTile(dynamic user) {
+  Widget _buildBlockedUserTile(dynamic user, bool isDark) {
     final userId = user['_id']?.toString() ?? user['id']?.toString() ?? '';
     final nickname = user['nickname'] ?? '알 수 없음';
     final profileImage = user['profileImage'];
@@ -149,20 +155,27 @@ class _BlockedUsersScreenState extends State<BlockedUsersScreen> {
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: AppTheme.darkCard,
+        color: isDark ? AppTheme.darkCard : Colors.white,
         borderRadius: BorderRadius.circular(12),
+        boxShadow: isDark ? null : [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
           // 프로필 이미지
           CircleAvatar(
             radius: 24,
-            backgroundColor: Colors.grey.shade700,
+            backgroundColor: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
             backgroundImage: profileImage != null
                 ? CachedNetworkImageProvider(profileImage)
                 : null,
             child: profileImage == null
-                ? const Icon(Icons.person, color: Colors.white54)
+                ? Icon(Icons.person, color: isDark ? Colors.white54 : Colors.black38)
                 : null,
           ),
           const SizedBox(width: 16),
@@ -173,8 +186,8 @@ class _BlockedUsersScreenState extends State<BlockedUsersScreen> {
               children: [
                 Text(
                   nickname,
-                  style: const TextStyle(
-                    color: Colors.white,
+                  style: TextStyle(
+                    color: isDark ? Colors.white : Colors.black87,
                     fontSize: 16,
                     fontWeight: FontWeight.w500,
                   ),
@@ -198,10 +211,10 @@ class _BlockedUsersScreenState extends State<BlockedUsersScreen> {
           ),
           // 차단 해제 버튼
           OutlinedButton(
-            onPressed: () => _unblockUser(userId, nickname),
+            onPressed: () => _unblockUser(userId, nickname, isDark),
             style: OutlinedButton.styleFrom(
-              foregroundColor: Colors.white70,
-              side: const BorderSide(color: Colors.white24),
+              foregroundColor: isDark ? Colors.white70 : Colors.black54,
+              side: BorderSide(color: isDark ? Colors.white24 : Colors.black26),
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
             ),
             child: const Text('해제'),

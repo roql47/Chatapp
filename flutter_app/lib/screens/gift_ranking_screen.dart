@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../config/theme.dart';
 import '../services/api_service.dart';
+import '../providers/theme_provider.dart';
 
 /// 배지 아이콘 매핑
 IconData _getBadgeIcon(String? iconName) {
@@ -63,19 +65,23 @@ class _GiftRankingScreenState extends State<GiftRankingScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final themeProvider = Provider.of<ThemeProvider>(context);
+    final isDark = themeProvider.isDarkMode;
+    
     return Scaffold(
-      backgroundColor: AppTheme.darkBackground,
+      backgroundColor: isDark ? AppTheme.darkBackground : AppTheme.lightBackground,
       appBar: AppBar(
-        backgroundColor: AppTheme.darkSurface,
+        backgroundColor: isDark ? AppTheme.darkSurface : Colors.white,
+        elevation: isDark ? 0 : 1,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: Colors.white70),
+          icon: Icon(Icons.arrow_back, color: isDark ? Colors.white70 : Colors.black54),
           onPressed: () => context.pop(),
         ),
         title: Row(
-          children: const [
-            Icon(Icons.card_giftcard, color: Colors.pink),
-            SizedBox(width: 8),
-            Text('인기 랭킹', style: TextStyle(color: Colors.white)),
+          children: [
+            const Icon(Icons.card_giftcard, color: Colors.pink),
+            const SizedBox(width: 8),
+            Text('인기 랭킹', style: TextStyle(color: isDark ? Colors.white : Colors.black87)),
           ],
         ),
       ),
@@ -86,20 +92,20 @@ class _GiftRankingScreenState extends State<GiftRankingScreen> {
               child: CustomScrollView(
                 slivers: [
                   // 내 통계
-                  if (_myStats != null) SliverToBoxAdapter(child: _buildMyStats()),
+                  if (_myStats != null) SliverToBoxAdapter(child: _buildMyStats(isDark)),
                   
                   // 랭킹 헤더
                   SliverToBoxAdapter(
                     child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Row(
-                        children: const [
-                          Icon(Icons.emoji_events, color: Colors.amber),
-                          SizedBox(width: 8),
+                        children: [
+                          const Icon(Icons.emoji_events, color: Colors.amber),
+                          const SizedBox(width: 8),
                           Text(
                             '선물 랭킹 TOP 50',
                             style: TextStyle(
-                              color: Colors.white,
+                              color: isDark ? Colors.white : Colors.black87,
                               fontSize: 18,
                               fontWeight: FontWeight.bold,
                             ),
@@ -111,10 +117,10 @@ class _GiftRankingScreenState extends State<GiftRankingScreen> {
                   
                   // 랭킹 리스트
                   _ranking.isEmpty
-                      ? SliverFillRemaining(child: _buildEmptyState())
+                      ? SliverFillRemaining(child: _buildEmptyState(isDark))
                       : SliverList(
                           delegate: SliverChildBuilderDelegate(
-                            (context, index) => _buildRankingTile(_ranking[index]),
+                            (context, index) => _buildRankingTile(_ranking[index], isDark),
                             childCount: _ranking.length,
                           ),
                         ),
@@ -124,7 +130,7 @@ class _GiftRankingScreenState extends State<GiftRankingScreen> {
     );
   }
 
-  Widget _buildMyStats() {
+  Widget _buildMyStats(bool isDark) {
     final badge = _myStats!['badge'] as Map<String, dynamic>?;
     final nextBadge = _myStats!['nextBadge'] as Map<String, dynamic>?;
     
@@ -231,28 +237,28 @@ class _GiftRankingScreenState extends State<GiftRankingScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildEmptyState(bool isDark) {
     return Center(
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          const Icon(Icons.card_giftcard, size: 64, color: Colors.white24),
+          Icon(Icons.card_giftcard, size: 64, color: isDark ? Colors.white24 : Colors.black26),
           const SizedBox(height: 16),
-          const Text(
+          Text(
             '아직 랭킹 데이터가 없습니다',
-            style: TextStyle(color: Colors.white60, fontSize: 16),
+            style: TextStyle(color: isDark ? Colors.white60 : Colors.black54, fontSize: 16),
           ),
           const SizedBox(height: 8),
           Text(
             '선물을 주고받으면 랭킹에 등록됩니다!',
-            style: TextStyle(color: Colors.white.withOpacity(0.4), fontSize: 14),
+            style: TextStyle(color: isDark ? Colors.white38 : Colors.black38, fontSize: 14),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildRankingTile(dynamic user) {
+  Widget _buildRankingTile(dynamic user, bool isDark) {
     final rank = user['rank'] as int;
     final badge = user['badge'] as Map<String, dynamic>?;
     
@@ -274,9 +280,18 @@ class _GiftRankingScreenState extends State<GiftRankingScreen> {
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: rank <= 3 ? rankColor?.withOpacity(0.1) : AppTheme.darkCard,
+        color: rank <= 3 
+            ? rankColor?.withOpacity(isDark ? 0.1 : 0.15) 
+            : (isDark ? AppTheme.darkCard : Colors.white),
         borderRadius: BorderRadius.circular(12),
         border: rank <= 3 ? Border.all(color: rankColor!.withOpacity(0.5)) : null,
+        boxShadow: isDark || rank <= 3 ? null : [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2),
+          ),
+        ],
       ),
       child: Row(
         children: [
@@ -288,7 +303,7 @@ class _GiftRankingScreenState extends State<GiftRankingScreen> {
                 : Text(
                     '$rank',
                     style: TextStyle(
-                      color: Colors.white.withOpacity(0.6),
+                      color: isDark ? Colors.white60 : Colors.black45,
                       fontSize: 18,
                       fontWeight: FontWeight.bold,
                     ),
@@ -299,12 +314,12 @@ class _GiftRankingScreenState extends State<GiftRankingScreen> {
           // 프로필 이미지
           CircleAvatar(
             radius: 24,
-            backgroundColor: Colors.grey.shade700,
+            backgroundColor: isDark ? Colors.grey.shade700 : Colors.grey.shade300,
             backgroundImage: user['profileImage'] != null
                 ? CachedNetworkImageProvider(user['profileImage'])
                 : null,
             child: user['profileImage'] == null
-                ? const Icon(Icons.person, color: Colors.white54)
+                ? Icon(Icons.person, color: isDark ? Colors.white54 : Colors.black38)
                 : null,
           ),
           const SizedBox(width: 16),
@@ -317,8 +332,8 @@ class _GiftRankingScreenState extends State<GiftRankingScreen> {
                   children: [
                     Text(
                       user['nickname'] ?? '알 수 없음',
-                      style: const TextStyle(
-                        color: Colors.white,
+                      style: TextStyle(
+                        color: isDark ? Colors.white : Colors.black87,
                         fontSize: 16,
                         fontWeight: FontWeight.w600,
                       ),
@@ -337,7 +352,7 @@ class _GiftRankingScreenState extends State<GiftRankingScreen> {
                 Text(
                   '받은 선물 ${user['totalReceived']}개 · +${user['totalPointsEarned'] ?? 0}P',
                   style: TextStyle(
-                    color: Colors.white.withOpacity(0.6),
+                    color: isDark ? Colors.white60 : Colors.black45,
                     fontSize: 12,
                   ),
                 ),

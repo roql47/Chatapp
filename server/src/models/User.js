@@ -218,6 +218,22 @@ const userSchema = new mongoose.Schema({
       default: null,
     },
   },
+  
+  // 출석체크
+  attendance: {
+    lastCheckIn: {
+      type: Date,
+      default: null,
+    },
+    currentStreak: {
+      type: Number,
+      default: 0, // 현재 연속 출석일 (1-7)
+    },
+    weekStartDate: {
+      type: Date,
+      default: null, // 이번 주기 시작일
+    },
+  },
 });
 
 // 인덱스 설정

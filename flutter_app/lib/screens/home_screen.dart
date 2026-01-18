@@ -7,9 +7,11 @@ import '../providers/theme_provider.dart';
 import '../models/matching_filter.dart';
 import '../config/theme.dart';
 import '../services/ad_service.dart';
+import '../services/api_service.dart';
 import '../services/storage_service.dart';
 import '../services/socket_service.dart';
 import '../widgets/profile_image_viewer.dart';
+import '../widgets/attendance_dialog.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -23,7 +25,9 @@ class _HomeScreenState extends State<HomeScreen>
   late AnimationController _controller;
   late Animation<double> _pulseAnimation;
   final SocketService _socketService = SocketService();
+  final ApiService _apiService = ApiService();
   bool _checkedActiveChat = false;
+  bool _checkedAttendance = false;
 
   @override
   void initState() {
@@ -42,10 +46,29 @@ class _HomeScreenState extends State<HomeScreen>
     // 소켓 재연결 콜백 설정
     _socketService.onReconnected = _onSocketReconnected;
     
-    // 활성 채팅 확인
+    // 활성 채팅 확인 및 출석체크 모달
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _checkActiveChat();
+      _checkAndShowAttendance();
     });
+  }
+  
+  // 출석체크 상태 확인 후 모달 표시
+  Future<void> _checkAndShowAttendance() async {
+    if (_checkedAttendance) return;
+    _checkedAttendance = true;
+    
+    try {
+      final response = await _apiService.get('/api/auth/attendance');
+      final checkedInToday = response['checkedInToday'] ?? false;
+      
+      // 오늘 출석하지 않았으면 모달 표시
+      if (!checkedInToday && mounted) {
+        _showAttendanceDialog();
+      }
+    } catch (e) {
+      print('출석체크 상태 확인 오류: $e');
+    }
   }
 
   @override
@@ -654,53 +677,98 @@ class _HomeScreenState extends State<HomeScreen>
             ),
           ],
         ),
-        // 포인트 표시
-        GestureDetector(
-          onTap: () => context.push('/point-shop'),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: isDark ? AppTheme.darkCard : Colors.white,
-              borderRadius: BorderRadius.circular(20),
-              border: Border.all(
-                color: Colors.amber.withOpacity(0.3),
-                width: 1,
-              ),
-              boxShadow: isDark ? null : [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 10,
-                  offset: const Offset(0, 2),
+        // 출석체크 & 포인트
+        Row(
+          children: [
+            // 출석체크 버튼
+            GestureDetector(
+              onTap: () => _showAttendanceDialog(),
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.darkCard : Colors.white,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: Colors.green.withOpacity(0.3),
+                    width: 1,
+                  ),
+                  boxShadow: isDark ? null : [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
-              ],
-            ),
-            child: Row(
-              children: [
-                const Icon(
-                  Icons.monetization_on,
-                  color: Colors.amber,
+                child: const Icon(
+                  Icons.calendar_today,
+                  color: Colors.green,
                   size: 20,
                 ),
-                const SizedBox(width: 6),
-                Text(
-                  '$points',
-                  style: TextStyle(
-                    color: isDark ? Colors.white : Colors.black87,
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                const Icon(
-                  Icons.add_circle,
-                  color: Colors.amber,
-                  size: 16,
-                ),
-              ],
+              ),
             ),
-          ),
+            const SizedBox(width: 8),
+            // 포인트 표시
+            GestureDetector(
+              onTap: () => context.push('/point-shop'),
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                decoration: BoxDecoration(
+                  color: isDark ? AppTheme.darkCard : Colors.white,
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: Colors.amber.withOpacity(0.3),
+                    width: 1,
+                  ),
+                  boxShadow: isDark ? null : [
+                    BoxShadow(
+                      color: Colors.black.withOpacity(0.05),
+                      blurRadius: 10,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    const Icon(
+                      Icons.monetization_on,
+                      color: Colors.amber,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      '$points',
+                      style: TextStyle(
+                        color: isDark ? Colors.white : Colors.black87,
+                        fontWeight: FontWeight.bold,
+                        fontSize: 14,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    const Icon(
+                      Icons.add_circle,
+                      color: Colors.amber,
+                      size: 16,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ],
         ),
       ],
+    );
+  }
+
+  void _showAttendanceDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AttendanceDialog(
+        onCheckInComplete: () {
+          // 포인트 업데이트를 위해 사용자 정보 새로고침
+          Provider.of<AuthProvider>(context, listen: false).refreshUser();
+        },
+      ),
     );
   }
 
@@ -716,17 +784,18 @@ class _HomeScreenState extends State<HomeScreen>
               height: 200,
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
-                gradient: const LinearGradient(
+                gradient: LinearGradient(
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
-                  colors: [
-                    AppTheme.primaryColor,
-                    AppTheme.secondaryColor,
-                  ],
+                  colors: isDark
+                      ? [AppTheme.primaryColor, AppTheme.secondaryColor]
+                      : [const Color(0xFFFF9FB0), const Color(0xFFFFB6C1)], // 연한 핑크
                 ),
                 boxShadow: [
                   BoxShadow(
-                    color: AppTheme.primaryColor.withOpacity(0.4),
+                    color: isDark 
+                        ? AppTheme.primaryColor.withOpacity(0.4)
+                        : const Color(0xFFFFB6C1).withOpacity(0.5),
                     blurRadius: 30,
                     spreadRadius: 10,
                   ),
