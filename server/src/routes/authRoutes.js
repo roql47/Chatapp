@@ -431,6 +431,63 @@ router.post('/adult-verification/kakao', authMiddleware, async (req, res) => {
   }
 });
 
+// Firebase Phone Auth 기반 성인인증 처리
+router.post('/adult-verification/firebase', authMiddleware, async (req, res) => {
+  try {
+    const { phone, birthYear, firebaseUid } = req.body;
+    
+    if (!phone || !birthYear) {
+      return res.status(400).json({ message: '전화번호와 생년 정보가 필요합니다.' });
+    }
+    
+    // 만 19세 이상인지 확인
+    const currentYear = new Date().getFullYear();
+    const age = currentYear - birthYear;
+    
+    if (age < 19) {
+      return res.status(403).json({ 
+        message: '만 19세 이상만 이용 가능합니다.',
+        age: age,
+      });
+    }
+    
+    // 동일 전화번호로 다른 계정 인증 확인
+    const User = require('../models/User');
+    const existingUser = await User.findOne({ 
+      'adultVerification.phone': phone,
+      _id: { $ne: req.userId }
+    });
+    
+    if (existingUser) {
+      return res.status(409).json({ 
+        message: '이미 다른 계정에서 인증된 전화번호입니다.' 
+      });
+    }
+    
+    // 성인인증 정보 업데이트
+    const user = await User.findByIdAndUpdate(
+      req.userId,
+      {
+        'adultVerification.isVerified': true,
+        'adultVerification.verifiedAt': new Date(),
+        'adultVerification.birthYear': birthYear,
+        'adultVerification.phone': phone,
+        'adultVerification.firebaseUid': firebaseUid || null,
+      },
+      { new: true }
+    );
+    
+    res.json({
+      message: '성인인증이 완료되었습니다.',
+      isVerified: true,
+      verifiedAt: user.adultVerification.verifiedAt,
+    });
+  } catch (error) {
+    console.error('Firebase 성인인증 처리 오류:', error);
+    res.status(500).json({ message: '성인인증 처리에 실패했습니다.' });
+  }
+});
+
 // 성인인증 우회 (테스트용 - 프로덕션에서는 비활성화)
 router.post('/adult-verification/bypass', authMiddleware, async (req, res) => {
   try {

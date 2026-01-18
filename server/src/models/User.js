@@ -51,7 +51,11 @@ const userSchema = new mongoose.Schema({
     },
     ci: {
       type: String,
-      default: null, // 중복가입 방지용 고유값
+      default: null, // 중복가입 방지용 고유값 (카카오 인증)
+    },
+    phone: {
+      type: String,
+      default: null, // SMS 인증 전화번호
     },
   },
   interests: {

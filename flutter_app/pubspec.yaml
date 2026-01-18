@@ -55,6 +55,7 @@ dependencies:
   # Firebase
   firebase_core: ^2.27.0
   firebase_storage: ^11.6.9
+  firebase_auth: ^4.17.8
   
   # 네트워크 & 유틸리티
   http: ^1.2.0
